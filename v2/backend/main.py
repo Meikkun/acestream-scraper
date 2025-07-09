@@ -3,12 +3,58 @@ Main application entry point for Acestream Scraper v2 backend
 """
 import os
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, APIRouter
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.api import api_router
 from app.config.settings import settings
+from app.utils.logging import setup_logging
+from app.services.task_service import task_service
+from app.tasks.epg_refresh_task import run_epg_refresh_task
+from app.tasks.url_scraping_task import run_url_scraping_task
+from app.tasks.channel_cleanup_task import run_channel_cleanup_task
+from app.tasks.channel_status_task import run_channel_status_task
+
+# Setup logging before anything else
+setup_logging()
+
+# Initialize database on startup
+def initialize_database():
+    """Initialize database with migration check"""
+    try:
+        from migrate_database import DatabaseMigrator
+        migrator = DatabaseMigrator()
+
+        # Only run migration if acestream.db exists and hasn't been migrated yet
+        if migrator.should_migrate():
+            print("Found v1 database, running migration...")
+            migrated = migrator.run_migration()
+            if migrated:
+                print("Migration completed successfully!")
+            return
+
+        # Check if v2 database exists, create if not
+        if not os.path.exists(migrator.v2_db_path):
+            print("Creating fresh v2 database...")
+            from app.config.database import engine, Base
+            Base.metadata.create_all(bind=engine)
+            print("Fresh v2 database created!")
+        else:
+            print("V2 database ready")
+
+    except Exception as e:
+        print(f"Database initialization error: {e}")
+        # Create empty database if everything fails
+        try:
+            from app.config.database import engine, Base
+            print("Creating emergency fresh database...")
+            Base.metadata.create_all(bind=engine)
+        except Exception as e2:
+            print(f"Emergency database creation failed: {e2}")
+
+# Initialize database
+initialize_database()
 
 app = FastAPI(
     title="Acestream Scraper API",
@@ -16,18 +62,32 @@ app = FastAPI(
     version="2.0.0",
 )
 
+# Add CORS middleware
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Add API routes with versioning
 app.include_router(api_router, prefix="/api/v1")
 
-# Add CORS middleware if needed
-# from fastapi.middleware.cors import CORSMiddleware
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=settings.CORS_ORIGINS,
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
+# Status router for background tasks
+status_router = APIRouter()
+
+@status_router.get("/api/v1/background-tasks/status")
+def get_background_tasks_status():
+    jobs = task_service.get_jobs()
+    return [{
+        "id": job.id,
+        "next_run_time": str(job.next_run_time),
+        "trigger": str(job.trigger)
+    } for job in jobs]
+
+app.include_router(status_router)
 
 # Static files serving
 frontend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), settings.FRONTEND_BUILD_PATH)
@@ -47,9 +107,14 @@ for dirname in static_dirs:
 @app.exception_handler(StarletteHTTPException)
 async def spa_server(request: Request, exc: StarletteHTTPException):
     """Serve SPA for all non-API routes."""
+    # Only handle 404s for non-API routes (client-side routing)
     if exc.status_code == 404 and not request.url.path.startswith("/api"):
         return FileResponse(os.path.join(frontend_dir, "index.html"))
-    raise exc
+    # For API routes or other status codes, return the exception as an HTTP response
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
 
 @app.get("/", response_class=HTMLResponse)
 async def read_index():
@@ -60,6 +125,20 @@ async def read_index():
     except FileNotFoundError:
         # If frontend build doesn't exist yet, return a placeholder
         return HTMLResponse(content="<html><body><h1>Acestream Scraper</h1><p>Frontend not built yet. Please run 'npm run build' in the frontend directory.</p></body></html>")
+
+@app.on_event("startup")
+def start_background_tasks():
+    # Start the background scheduler
+    task_service.start()
+    # Schedule periodic tasks (intervals in seconds)
+    task_service.add_interval_task(run_epg_refresh_task, seconds=3600, job_id="epg_refresh")  # every hour
+    task_service.add_interval_task(run_url_scraping_task, seconds=900, job_id="url_scraping")  # every 15 min
+    task_service.add_interval_task(run_channel_cleanup_task, seconds=86400, job_id="channel_cleanup")  # daily
+    task_service.add_interval_task(run_channel_status_task, seconds=600, job_id="channel_status")  # every 10 min
+
+@app.on_event("shutdown")
+def shutdown_background_tasks():
+    task_service.shutdown()
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

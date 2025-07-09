@@ -11,7 +11,8 @@ import {
   CreateEPGSourceDTO, 
   UpdateEPGSourceDTO, 
   EPGChannelMappingDTO, 
-  EPGRefreshResult 
+  EPGRefreshResult,
+  EPGXMLGenerationParams
 } from '../services/epgService';
 
 /**
@@ -101,7 +102,6 @@ export const useRefreshEPGSource = (id: number) => {
         queryClient.invalidateQueries(['epg-source', id]);
         queryClient.invalidateQueries('epg-sources');
         queryClient.invalidateQueries('epg-channels');
-        queryClient.invalidateQueries('epg-programs');
       }
     }
   );
@@ -119,7 +119,6 @@ export const useRefreshAllEPGSources = () => {
       onSuccess: () => {
         queryClient.invalidateQueries('epg-sources');
         queryClient.invalidateQueries('epg-channels');
-        queryClient.invalidateQueries('epg-programs');
       }
     }
   );
@@ -130,11 +129,9 @@ export const useRefreshAllEPGSources = () => {
  */
 export const useEPGChannels = (sourceId?: number, options?: UseQueryOptions<EPGChannel[]>) => {
   return useQuery<EPGChannel[]>(
-    ['epg-channels', sourceId],
+    sourceId ? ['epg-channels', sourceId] : ['epg-channels'],
     () => epgService.getChannels(sourceId),
-    {
-      ...options
-    }
+    options
   );
 };
 
@@ -162,7 +159,6 @@ export const useMapEPGChannel = () => {
     (mapping: EPGChannelMappingDTO) => epgService.mapChannelToTV(mapping),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('epg-channels');
         queryClient.invalidateQueries('tv-channels');
       }
     }
@@ -170,7 +166,7 @@ export const useMapEPGChannel = () => {
 };
 
 /**
- * Hook for unmapping an EPG channel from a TV channel
+ * Hook for removing a mapping between EPG channel and TV channel
  */
 export const useUnmapEPGChannel = () => {
   const queryClient = useQueryClient();
@@ -180,7 +176,6 @@ export const useUnmapEPGChannel = () => {
       epgService.unmapChannel(epgChannelId, tvChannelId),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('epg-channels');
         queryClient.invalidateQueries('tv-channels');
       }
     }
@@ -193,7 +188,7 @@ export const useUnmapEPGChannel = () => {
 export const useEPGPrograms = (
   channelId: number, 
   startDate?: string, 
-  endDate?: string, 
+  endDate?: string,
   options?: UseQueryOptions<EPGProgram[]>
 ) => {
   return useQuery<EPGProgram[]>(
@@ -250,5 +245,23 @@ export const useDeleteEPGStringMapping = (channelId: number) => {
         queryClient.invalidateQueries(['epg-string-mappings', channelId]);
       }
     }
+  );
+};
+
+/**
+ * Hook for generating and downloading EPG XML
+ */
+export const useDownloadEPGXML = () => {
+  return useMutation(
+    (params?: EPGXMLGenerationParams) => epgService.downloadEPGXML(params)
+  );
+};
+
+/**
+ * Hook for generating EPG XML URL
+ */
+export const useGenerateEPGXML = () => {
+  return useMutation<string, Error, EPGXMLGenerationParams | undefined>(
+    (params?: EPGXMLGenerationParams) => epgService.generateEPGXML(params)
   );
 };

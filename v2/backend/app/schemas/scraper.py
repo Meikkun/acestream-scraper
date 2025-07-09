@@ -31,8 +31,31 @@ class URLResponse(BaseModel):
     """Schema for scraped URL information"""
     id: int
     url: str
-    last_scraped: datetime
+    url_type: str
     status: str
-    
+    last_processed: Optional[datetime] = None
+    last_scraped: Optional[datetime] = None
+    error_count: int = 0
+    last_error: Optional[str] = None
+    error: Optional[str] = None  # Keep for backward compatibility
+    enabled: bool = True
+    added_at: datetime
+
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+
+class URLCreate(BaseModel):
+    """Schema for creating a scraped URL"""
+    url: str
+    url_type: str = "regular"
+    enabled: bool = True
+    status: str = "active"
+
+
+class URLUpdate(BaseModel):
+    """Schema for updating a scraped URL"""
+    url: Optional[str] = None
+    url_type: Optional[str] = None
+    enabled: Optional[bool] = None
+    status: Optional[str] = None

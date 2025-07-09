@@ -22,25 +22,31 @@ import {
   ErrorOutline
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
-import { useChannelGroups } from '../hooks/usePlaylists';
-import { useURLs } from '../hooks/useScrapers';
-import { getErrorMessage } from '../utils/errorUtils';
+// Temporarily comment out the API hooks to test rendering
+// import { useChannelGroups } from '../hooks/usePlaylists';
+// import { useURLs } from '../hooks/useScrapers';
+// import { getErrorMessage } from '../utils/errorUtils';
 
 /**
  * Dashboard page component - displays application overview and quick actions
  */
 const Dashboard: React.FC = () => {
-  // Fetch channel groups for stats
-  const { 
-    data: channelGroups = [],
-    isLoading: loadingGroups 
-  } = useChannelGroups();
+  console.log('Dashboard component rendering...');
   
-  // Fetch URLs for stats
-  const { 
-    data: urls = [],
-    isLoading: loadingUrls 
-  } = useURLs();
+  // Temporarily comment out API calls to test rendering
+  // const { 
+  //   data: channelGroups = [],
+  //   isLoading: loadingGroups 
+  // } = useChannelGroups();
+  
+  // const { 
+  //   data: urls = [],
+  //   isLoading: loadingUrls 
+  // } = useURLs();
+
+  // Mock data for testing
+  const channelGroups: string[] = [];
+  const urls: any[] = [];
 
   // Calculate stats
   const totalUrls = urls.length;

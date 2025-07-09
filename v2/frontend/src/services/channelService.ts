@@ -73,7 +73,7 @@ export interface ChannelFilters {
 /**
  * Channel API service
  */
-export const channelService = {
+const channelService = {
   /**
    * Get all channels with optional filtering
    */
@@ -122,4 +122,5 @@ export const channelService = {
   },
 };
 
+export { channelService };
 export default channelService;

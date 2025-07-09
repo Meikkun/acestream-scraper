@@ -16,7 +16,8 @@ import {
   Grid,
   Alert,
   Divider,
-  Chip
+  Chip,
+  SelectChangeEvent
 } from '@mui/material';
 import { Download, QrCode } from '@mui/icons-material';
 import { useM3UPlaylist, useChannelGroups } from '../hooks/usePlaylists';
@@ -43,22 +44,44 @@ const Playlist: React.FC = () => {
   } = useChannelGroups();
 
   // Get M3U playlist URL based on current filters
-  const playlistUrl = `/api/v1/playlists/m3u?${new URLSearchParams({
-    ...filters.only_online !== undefined ? { only_online: String(filters.only_online) } : {},
-    ...filters.search ? { search: filters.search } : {},
-    ...search ? { search } : {},
-    ...filters.include_groups ? filters.include_groups.map(g => `include_groups=${g}`).join('&') : '',
-    ...filters.exclude_groups ? filters.exclude_groups.map(g => `exclude_groups=${g}`).join('&') : ''
-  }).toString()}`;
+  const playlistUrl = (() => {
+    const params: Record<string, string> = {};
+    
+    if (filters.only_online !== undefined) {
+      params.only_online = String(filters.only_online);
+    }
+    
+    if (filters.search) {
+      params.search = filters.search;
+    }
+    
+    if (search) {
+      params.search = search;
+    }
+    
+    if (filters.include_groups) {
+      filters.include_groups.forEach(g => {
+        params[`include_groups`] = g;
+      });
+    }
+    
+    if (filters.exclude_groups) {
+      filters.exclude_groups.forEach(g => {
+        params[`exclude_groups`] = g;
+      });
+    }
+    
+    return `/api/v1/playlists/m3u?${new URLSearchParams(params).toString()}`;
+  })();
 
-  const handleIncludeGroupsChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+  const handleIncludeGroupsChange = (event: SelectChangeEvent<string[]>) => {
     setFilters({
       ...filters,
       include_groups: event.target.value as string[]
     });
   };
 
-  const handleExcludeGroupsChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+  const handleExcludeGroupsChange = (event: SelectChangeEvent<string[]>) => {
     setFilters({
       ...filters,
       exclude_groups: event.target.value as string[]

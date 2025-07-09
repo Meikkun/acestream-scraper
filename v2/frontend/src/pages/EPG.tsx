@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from 'react-query';
 import { 
   Typography, 
   Box, 
@@ -27,14 +29,19 @@ import {
   CardContent,
   CardActions,
   FormControlLabel,
-  Switch
+  Switch,
+  Divider,
+  Stack,
+  Slider
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Download as DownloadIcon,
+  Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
 import { 
@@ -45,9 +52,10 @@ import {
   useDeleteEPGSource, 
   useRefreshEPGSource, 
   useRefreshAllEPGSources,
-  useMapEPGChannel
+  useMapEPGChannel,
+  useDownloadEPGXML
 } from '../hooks/useEPG';
-import { EPGSource, EPGChannel, CreateEPGSourceDTO, UpdateEPGSourceDTO } from '../services/epgService';
+import { EPGSource, EPGChannel, CreateEPGSourceDTO, UpdateEPGSourceDTO, EPGXMLGenerationParams, epgService } from '../services/epgService';
 
 interface EPGSourceFormData {
   url: string;
@@ -66,52 +74,7 @@ interface TabPanelProps {
   value: number;
 }
 
-// Placeholder data until we have backend services
-const mockEPGSources: EPGSource[] = [
-  {
-    id: 1,
-    url: 'https://example.com/epg1.xml',
-    name: 'XMLTV Guide',
-    enabled: true,
-    last_updated: '2023-06-15T14:30:00Z',
-    error_count: 0,
-    last_error: undefined
-  },
-  {
-    id: 2,
-    url: 'https://example.com/epg2.xml',
-    name: 'Sports EPG',
-    enabled: false,
-    last_updated: '2023-06-10T08:45:00Z',
-    error_count: 2,
-    last_error: 'Failed to download XML file'
-  }
-];
-
-const mockEPGChannels: EPGChannel[] = [
-  {
-    id: 1,
-    epg_source_id: 1,
-    channel_xml_id: 'espn.com',
-    name: 'ESPN',
-    icon_url: 'https://example.com/espn.png',
-    language: 'en',
-    created_at: '2023-01-15T00:00:00Z',
-    updated_at: '2023-06-15T14:30:00Z'
-  },
-  {
-    id: 2,
-    epg_source_id: 1,
-    channel_xml_id: 'cnn.com',
-    name: 'CNN',
-    icon_url: 'https://example.com/cnn.png',
-    language: 'en',
-    created_at: '2023-01-15T00:00:00Z',
-    updated_at: '2023-06-15T14:30:00Z'
-  }
-];
-
-const TabPanel = (props: TabPanelProps) => {
+function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
 
   return (
@@ -129,46 +92,72 @@ const TabPanel = (props: TabPanelProps) => {
       )}
     </div>
   );
-};
+}
 
 const EPG: React.FC = () => {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [tabValue, setTabValue] = useState(0);
   const [openSourceDialog, setOpenSourceDialog] = useState(false);
   const [isEditSource, setIsEditSource] = useState(false);
-  const [currentSourceId, setCurrentSourceId] = useState<number | null>(null);
+  const [editSourceId, setEditSourceId] = useState<number | null>(null);
   const [sourceFormData, setSourceFormData] = useState<EPGSourceFormData>({
     url: '',
     name: '',
     enabled: true
   });
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+  // XML generation state
+  const [xmlOptions, setXmlOptions] = useState<EPGXMLGenerationParams>({
+    search_term: '',
+    favorites_only: false,
+    days_back: 1,
+    days_forward: 7
+  });
   
-  // For now we'll use the mock data, but these would be replaced with React Query hooks
-  const isLoading = false;
-  const epgSources = mockEPGSources;
-  const epgChannels = mockEPGChannels;
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning' | 'info'
+  });
+  
+  // React Query hooks
+  const { data: epgSources, isLoading: isLoadingSources } = useEPGSources();
+  const { data: epgChannels, isLoading: isLoadingChannels } = useEPGChannels();
+  const { mutateAsync: createSource } = useCreateEPGSource();
+  const { mutateAsync: updateSource } = useUpdateEPGSource(editSourceId || 0);
+  const { mutateAsync: deleteSource } = useDeleteEPGSource();
+  const { mutateAsync: refreshAllSources, isLoading: isRefreshingAll } = useRefreshAllEPGSources();
+  const { mutateAsync: downloadEPGXML, isLoading: isDownloadingXML } = useDownloadEPGXML();
+  
+  // State for tracking which source is being refreshed
+  const [refreshingSourceId, setRefreshingSourceId] = useState<number | null>(null);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
-  const handleOpenSourceDialog = (edit = false, source?: EPGSource) => {
-    setIsEditSource(edit);
-    if (edit && source) {
-      setSourceFormData({
-        url: source.url,
-        name: source.name,
-        enabled: source.enabled
-      });
-      setCurrentSourceId(source.id);
-    } else {
-      setSourceFormData({
-        url: '',
-        name: '',
-        enabled: true
-      });
-      setCurrentSourceId(null);
-    }
+  // Source form handlers
+  const handleAddSourceClick = () => {
+    setIsEditSource(false);
+    setEditSourceId(null);
+    setSourceFormData({
+      url: '',
+      name: '',
+      enabled: true
+    });
+    setOpenSourceDialog(true);
+  };
+
+  const handleEditSourceClick = (source: EPGSource) => {
+    setIsEditSource(true);
+    setEditSourceId(source.id);
+    setSourceFormData({
+      url: source.url,
+      name: source.name,
+      enabled: source.enabled
+    });
     setOpenSourceDialog(true);
   };
 
@@ -176,41 +165,19 @@ const EPG: React.FC = () => {
     setOpenSourceDialog(false);
   };
 
-  const handleSourceFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, checked, type } = e.target;
-    setSourceFormData(prev => ({
-      ...prev,
+  const handleSourceFormChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = event.target;
+    setSourceFormData({
+      ...sourceFormData,
       [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  const handleSourceFormSubmit = () => {
-    // This would call a mutation function to save the data
-    setSnackbar({
-      open: true,
-      message: isEditSource ? 'EPG Source updated successfully' : 'EPG Source added successfully',
-      severity: 'success'
     });
-    handleCloseSourceDialog();
   };
 
-  const handleDeleteSource = (id: number) => {
-    // This would call a mutation function to delete the EPG source
-    if (confirm('Are you sure you want to delete this EPG source?')) {
-      setSnackbar({
-        open: true,
-        message: 'EPG Source deleted successfully',
-        severity: 'success'
-      });
-    }
-  };
-
-  const handleRefreshEPG = (id: number) => {
-    // This would trigger a refresh of the EPG data
+  const showSnackbar = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
     setSnackbar({
       open: true,
-      message: 'EPG refresh started',
-      severity: 'success'
+      message,
+      severity
     });
   };
 
@@ -218,185 +185,357 @@ const EPG: React.FC = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
+  const handleSourceFormSubmit = async () => {
+    try {
+      if (isEditSource && editSourceId) {
+        await updateSource(sourceFormData);
+        showSnackbar('EPG source updated successfully', 'success');
+      } else {
+        await createSource(sourceFormData);
+        showSnackbar('EPG source added successfully', 'success');
+      }
+      handleCloseSourceDialog();
+    } catch (error) {
+      showSnackbar(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    }
+  };
+
+  const handleDeleteSourceClick = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this EPG source?')) {
+      try {
+        await deleteSource(id);
+        showSnackbar('EPG source deleted successfully', 'success');
+      } catch (error) {
+        showSnackbar(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      }
+    }
+  };
+
+  const handleRefreshSourceClick = async (id: number) => {
+    try {
+      setRefreshingSourceId(id);
+      // Use the epgService directly since we need to pass the specific source ID
+      const result = await epgService.refreshSource(id);
+      if (result.success) {
+        showSnackbar(`EPG source refreshed successfully. Found ${result.channels_found} channels and ${result.programs_found} programs.`, 'success');
+      } else {
+        showSnackbar(`Error refreshing EPG source: ${result.error || 'Unknown error'}`, 'error');
+      }
+      // Invalidate queries to refresh the data
+      queryClient.invalidateQueries('epg-sources');
+      queryClient.invalidateQueries('epg-channels');
+    } catch (error) {
+      showSnackbar(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    } finally {
+      setRefreshingSourceId(null);
+    }
+  };
+
+  const handleRefreshAllClick = async () => {
+    try {
+      const results = await refreshAllSources();
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.length - successCount;
+      
+      if (failCount === 0) {
+        showSnackbar(`All ${results.length} EPG sources refreshed successfully`, 'success');
+      } else {
+        showSnackbar(`${successCount} sources refreshed, ${failCount} failed`, 'warning');
+      }
+    } catch (error) {
+      showSnackbar(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    }
+  };
+  
+  // Handle XML options changes
+  const handleXmlOptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = event.target;
+    setXmlOptions({
+      ...xmlOptions,
+      [name]: type === 'checkbox' ? checked : value
+    });
+  };
+  
+  // Handle day range slider change
+  const handleDaysRangeChange = (event: Event, newValue: number | number[]) => {
+    if (Array.isArray(newValue)) {
+      setXmlOptions({
+        ...xmlOptions,
+        days_back: Math.abs(newValue[0]),
+        days_forward: newValue[1]
+      });
+    }
+  };
+  
+  // Handle XML download
+  const handleDownloadXML = async () => {
+    try {
+      await downloadEPGXML(xmlOptions);
+      showSnackbar('EPG XML generation started', 'info');
+    } catch (error) {
+      showSnackbar(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    }
+  };
+
   return (
-    <Box>
+    <Box sx={{ width: '100%', typography: 'body1' }}>
       <Typography variant="h4" gutterBottom>
-        Electronic Program Guide (EPG)
+        EPG Management
       </Typography>
-
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="EPG tabs">
-          <Tab label="EPG Sources" />
-          <Tab label="Channel Mappings" />
+      
+      <Paper sx={{ mb: 3 }}>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          indicatorColor="primary"
+          textColor="primary"
+          centered
+        >
+          <Tab label="Sources" />
+          <Tab label="Channels" />
+          <Tab label="XML Generation" />
         </Tabs>
-      </Box>
-
+      </Paper>
+      
       <TabPanel value={tabValue} index={0}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h6">
-            EPG Sources
-          </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Button 
             variant="contained" 
             color="primary" 
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenSourceDialog(false)}
+            startIcon={<AddIcon />} 
+            onClick={handleAddSourceClick}
           >
             Add EPG Source
           </Button>
+          <Button 
+            variant="outlined" 
+            startIcon={<RefreshIcon />} 
+            onClick={handleRefreshAllClick}
+            disabled={isRefreshingAll}
+          >
+            Refresh All
+          </Button>
         </Box>
 
-        <Grid container spacing={3}>
-          {isLoading ? (
-            <Grid item xs={12}>
-              <LinearProgress />
-            </Grid>
-          ) : (
-            epgSources.map((source) => (
-              <Grid item xs={12} md={6} lg={4} key={source.id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" component="div">
-                      {source.name}
-                      {source.enabled ? 
-                        <Chip 
-                          label="Enabled" 
-                          color="success" 
-                          size="small" 
-                          sx={{ ml: 1 }} 
-                        /> : 
-                        <Chip 
-                          label="Disabled" 
-                          color="default" 
-                          size="small" 
-                          sx={{ ml: 1 }} 
-                        />
-                      }
-                    </Typography>
-                    <Typography color="text.secondary" sx={{ mt: 1 }}>
-                      <LinkIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
-                      {source.url}
-                    </Typography>
-                    <Typography variant="body2" sx={{ mt: 2 }}>
-                      Last updated: {source.last_updated ? 
-                        formatDistanceToNow(new Date(source.last_updated), { addSuffix: true }) : 
-                        'Never'
-                      }
-                    </Typography>                    {source.error_count > 0 && source.last_error && (
-                      <Alert severity="error" sx={{ mt: 1 }}>
-                        {source.last_error}
-                      </Alert>
-                    )}
-                  </CardContent>
-                  <CardActions>
-                    <Button 
-                      size="small" 
-                      startIcon={<RefreshIcon />}
-                      onClick={() => handleRefreshEPG(source.id)}
-                    >
-                      Refresh
-                    </Button>
-                    <Button 
-                      size="small"
-                      startIcon={<EditIcon />}
-                      onClick={() => handleOpenSourceDialog(true, source)}
-                    >
-                      Edit
-                    </Button>
-                    <Button 
-                      size="small" 
-                      color="error"
-                      startIcon={<DeleteIcon />}
-                      onClick={() => handleDeleteSource(source.id)}
-                    >
-                      Delete
-                    </Button>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))
-          )}
+        {isLoadingSources || isRefreshingAll ? (
+          <LinearProgress sx={{ mb: 2 }} />
+        ) : null}
 
-          {epgSources.length === 0 && !isLoading && (
-            <Grid item xs={12}>
-              <Paper sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="body1">
-                  No EPG sources found. Add an EPG source to get started.
-                </Typography>
-              </Paper>
-            </Grid>
-          )}
-        </Grid>
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Name</TableCell>
+                <TableCell>URL</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Last Updated</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(epgSources || []).map((source) => (
+                <TableRow key={source.id}>
+                  <TableCell>{source.name}</TableCell>
+                  <TableCell>{source.url}</TableCell>
+                  <TableCell>
+                    {source.enabled ? (
+                      <Chip label="Enabled" color="success" size="small" />
+                    ) : (
+                      <Chip label="Disabled" color="default" size="small" />
+                    )}
+                    {source.error_count > 0 && (
+                      <Chip 
+                        label={`Errors: ${source.error_count}`} 
+                        color="error" 
+                        size="small" 
+                        sx={{ ml: 1 }} 
+                        title={source.last_error}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {source.last_updated ? (
+                      formatDistanceToNow(new Date(source.last_updated), { addSuffix: true })
+                    ) : (
+                      'Never'
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton 
+                      color="primary" 
+                      onClick={() => handleRefreshSourceClick(source.id)}
+                      disabled={refreshingSourceId === source.id}
+                    >
+                      <RefreshIcon />
+                    </IconButton>
+                    <IconButton color="secondary" onClick={() => handleEditSourceClick(source)}>
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton color="error" onClick={() => handleDeleteSourceClick(source.id)}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {epgSources && epgSources.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    No EPG sources found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h6">
-            EPG Channel Mappings
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Available EPG Channels
           </Typography>
         </Box>
 
-        <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-          {isLoading && <LinearProgress />}
-          
-          <TableContainer sx={{ maxHeight: 640 }}>
-            <Table stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell>EPG Channel</TableCell>
-                  <TableCell>XML ID</TableCell>
-                  <TableCell>Source</TableCell>
-                  <TableCell>Mapped TV Channels</TableCell>
-                  <TableCell>Actions</TableCell>
+        {isLoadingChannels ? (
+          <LinearProgress sx={{ mb: 2 }} />
+        ) : null}
+
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Name</TableCell>
+                <TableCell>XML ID</TableCell>
+                <TableCell>Source</TableCell>
+                <TableCell>Language</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(epgChannels || []).map((channel) => (
+                <TableRow key={channel.id}>
+                  <TableCell>
+                    {channel.name}
+                    {channel.icon_url && (
+                      <Box
+                        component="img"
+                        src={channel.icon_url}
+                        alt={channel.name}
+                        sx={{ height: 30, marginLeft: 1.25, verticalAlign: 'middle' }}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell>{channel.channel_xml_id}</TableCell>
+                  <TableCell>
+                    {epgSources?.find(s => s.id === channel.epg_source_id)?.name || channel.epg_source_id}
+                  </TableCell>
+                  <TableCell>{channel.language || 'Unknown'}</TableCell>
+                  <TableCell>
+                    <IconButton 
+                      color="primary" 
+                      title="View Programs"
+                      onClick={() => navigate(`/epg/channels/${channel.id}`)}
+                    >
+                      <VisibilityIcon />
+                    </IconButton>
+                    <IconButton color="primary" title="Link to TV Channel">
+                      <LinkIcon />
+                    </IconButton>
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {epgChannels.length > 0 ? (
-                  epgChannels.map((channel) => {
-                    const source = epgSources.find(s => s.id === channel.epg_source_id);
-                    return (
-                      <TableRow key={channel.id} hover>
-                        <TableCell>
-                          <Box display="flex" alignItems="center">
-                            {channel.icon_url && (
-                              <Box 
-                                component="img" 
-                                src={channel.icon_url} 
-                                alt={channel.name}
-                                sx={{ width: 30, height: 30, mr: 1 }}
-                              />
-                            )}
-                            {channel.name}
-                          </Box>
-                        </TableCell>
-                        <TableCell>{channel.channel_xml_id}</TableCell>
-                        <TableCell>{source?.name || 'Unknown'}</TableCell>
-                        <TableCell>
-                          <Chip label="Not mapped yet" variant="outlined" />
-                        </TableCell>
-                        <TableCell>
-                          <Button 
-                            size="small" 
-                            variant="outlined"
-                            startIcon={<LinkIcon />}
-                          >
-                            Map to TV Channel
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center">
-                      {isLoading ? 'Loading...' : 'No EPG channels found'}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+              ))}
+              {epgChannels && epgChannels.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    No EPG channels found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </TabPanel>
+      
+      <TabPanel value={tabValue} index={2}>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Generate EPG XML
+          </Typography>
+          <Paper sx={{ p: 3 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Search Term (Optional)"
+                  name="search_term"
+                  value={xmlOptions.search_term || ''}
+                  onChange={handleXmlOptionChange}
+                  placeholder="Filter channels by name"
+                  variant="outlined"
+                  margin="normal"
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      name="favorites_only"
+                      checked={!!xmlOptions.favorites_only}
+                      onChange={handleXmlOptionChange}
+                      color="primary"
+                    />
+                  }
+                  label="Include Favorite Channels Only"
+                  sx={{ mt: 2 }}
+                />
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Date Range
+                </Typography>
+                <Box sx={{ px: 2 }}>
+                  <Slider
+                    value={[-(xmlOptions.days_back || 1), xmlOptions.days_forward || 7]}
+                    min={-14}
+                    max={14}
+                    step={1}
+                    onChange={handleDaysRangeChange}
+                    valueLabelDisplay="auto"
+                    marks={[
+                      { value: -14, label: '14 days past' },
+                      { value: -7, label: '1 week past' },
+                      { value: 0, label: 'Today' },
+                      { value: 7, label: '1 week future' },
+                      { value: 14, label: '2 weeks future' }
+                    ]}
+                    valueLabelFormat={(value) => value < 0 ? `${Math.abs(value)}d past` : `${value}d future`}
+                  />
+                </Box>
+                <Typography variant="body2" color="textSecondary" align="center">
+                  Including {xmlOptions.days_back} days of past programs and {xmlOptions.days_forward} days of future programs
+                </Typography>
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Divider sx={{ my: 2 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<DownloadIcon />}
+                    onClick={handleDownloadXML}
+                    disabled={isDownloadingXML}
+                    size="large"
+                  >
+                    {isDownloadingXML ? 'Generating...' : 'Generate and Download EPG XML'}
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Box>
       </TabPanel>
 
       {/* EPG Source Dialog */}

@@ -9,7 +9,7 @@ import {
   GridFilterModel,
 } from '@mui/x-data-grid';
 import { Chip, Box, IconButton, Tooltip, CircularProgress } from '@mui/material';
-import { CheckCircle, Cancel, Refresh } from '@mui/icons-material';
+import { CheckCircle, Cancel, Refresh, Edit, Delete } from '@mui/icons-material';
 import { Channel, ChannelFilters } from '../services/channelService';
 import { formatDate } from '../utils/errorUtils';
 
@@ -117,7 +117,10 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
           <Tooltip title="Check status">
             <IconButton 
               size="small" 
-              onClick={() => onCheckStatus(params.row.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onCheckStatus(params.row.id);
+              }}
               disabled={checkingStatus[params.row.id]}
             >
               {checkingStatus[params.row.id] ? (
@@ -125,6 +128,28 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
               ) : (
                 <Refresh fontSize="small" />
               )}
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Edit">
+            <IconButton 
+              size="small" 
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(params.row);
+              }}
+            >
+              <Edit fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton 
+              size="small" 
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(params.row.id);
+              }}
+            >
+              <Delete fontSize="small" />
             </IconButton>
           </Tooltip>
         </Box>
@@ -164,14 +189,13 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
       filterModel={filterModel}
       onFilterModelChange={handleFilterModelChange}
       disableRowSelectionOnClick
+      onRowClick={(params) => onEdit(params.row)}
       autoHeight
       pagination
       paginationMode="server"
       rowCount={totalCount}
       pageSizeOptions={[10, 25, 50, 100]}
-      page={page}
-      pageSize={pageSize}
-      onPageChange={onPageChange}
+      paginationModel={{ page, pageSize }}
       onPaginationModelChange={(model) => {
         onPageChange(model.page);
         onPageSizeChange(model.pageSize);

@@ -12,30 +12,34 @@ from app.models.models import AcestreamChannel
 
 class PlaylistService:
     """Service for generating M3U playlists"""
-    
+
     def __init__(self, db: Session):
         """Initialize with database session"""
         self.db = db
         self.channel_repository = ChannelRepository(db)
-    
+
     async def generate_playlist(
         self,
         search: Optional[str] = None,
         group: Optional[str] = None,
         only_online: bool = False,
         include_groups: Optional[List[str]] = None,
-        exclude_groups: Optional[List[str]] = None
+        exclude_groups: Optional[List[str]] = None,
+        base_url: Optional[str] = None,
+        format: Optional[str] = None
     ) -> str:
         """
         Generate an M3U playlist with the specified filters
-        
+
         Args:
             search: Optional search term for channel names
             group: Optional group filter
             only_online: Whether to include only online channels
             include_groups: Optional list of groups to include
             exclude_groups: Optional list of groups to exclude
-            
+            base_url: Optional base URL for stream links
+            format: Optional format for the playlist output
+
         Returns:
             The M3U playlist content as a string
         """
@@ -47,66 +51,79 @@ class PlaylistService:
             include_groups=include_groups,
             exclude_groups=exclude_groups
         )
-        
+
         # Generate M3U content
-        m3u_content = self._generate_m3u_content(channels)
+        m3u_content = self._generate_m3u_content(channels, base_url=base_url, format=format)
         return m3u_content
-    
+
     async def get_channel_groups(self) -> List[str]:
         """
         Get a list of all unique channel groups
-        
+
         Returns:
             List of group names
         """
         return self.channel_repository.get_unique_groups()
-        
-    def _generate_m3u_content(self, channels: List[AcestreamChannel]) -> str:
+
+    def _generate_m3u_content(self, channels: List[AcestreamChannel], base_url: Optional[str] = None, format: Optional[str] = None) -> str:
         """
-        Convert channels to M3U format
-        
+        Convert channels to M3U format, supporting custom base_url and format
+
         Args:
             channels: List of channels to include
-            
+            base_url: Optional base URL for stream links
+            format: Optional format for the playlist output
+
         Returns:
             M3U formatted string
         """
         # M3U header
         header = "#EXTM3U\n"
-        
+
         # Current timestamp for cache busting
         timestamp = str(int(time.time()))
-        
+
         # Generate each channel entry
         entries = []
         for channel in channels:
             # Skip invalid channels
-            if not channel.channel_id or not channel.name:
+            if not channel.id or not channel.name:
                 continue
-            
+
             # Build channel attributes
             attrs = []
             if channel.group:
                 attrs.append(f'group-title="{channel.group}"')
-            
+
             # Use TV channel logo if available
             logo = None
             if hasattr(channel, 'tv_channel') and channel.tv_channel and channel.tv_channel.logo_url:
                 logo = channel.tv_channel.logo_url
-            
+
             if logo:
                 attrs.append(f'tvg-logo="{logo}"')
-            
+
             # Add channel name and ID if available
             tvg_id = getattr(channel, 'tvg_id', '')
             if tvg_id:
                 attrs.append(f'tvg-id="{tvg_id}"')
-                
+
             # Generate entry
             entry = f'#EXTINF:-1 {" ".join(attrs)}, {channel.name}\n'
-            entry += f'acestream://{channel.channel_id}?{timestamp}\n'
-            
+
+            # Use custom base_url if provided
+            acestream_url = channel.source_url
+            if base_url and acestream_url and acestream_url.startswith('acestream://'):
+                acestream_id = acestream_url.replace('acestream://', '')
+                entry += f'{base_url.rstrip("/")}/{acestream_id}?{timestamp}\n'
+            elif acestream_url and acestream_url.startswith('acestream://'):
+                acestream_id = acestream_url.replace('acestream://', '')
+                entry += f'acestream://{acestream_id}?{timestamp}\n'
+            else:
+                # Fallback to source_url if it's not in acestream format
+                entry += f'{acestream_url or ""}?{timestamp}\n'
+
             entries.append(entry)
-        
+
         # Combine all parts
         return header + '\n'.join(entries)

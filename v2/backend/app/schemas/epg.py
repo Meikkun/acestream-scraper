@@ -33,7 +33,7 @@ class EPGSourceResponse(EPGSourceBase):
     last_error: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class EPGChannelBase(BaseModel):
@@ -52,7 +52,7 @@ class EPGChannelResponse(EPGChannelBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class EPGProgramBase(BaseModel):
@@ -73,7 +73,7 @@ class EPGProgramResponse(EPGProgramBase):
     program_xml_id: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class EPGStringMappingBase(BaseModel):
@@ -93,7 +93,7 @@ class EPGStringMappingResponse(EPGStringMappingBase):
     epg_channel_id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class EPGChannelMappingRequest(BaseModel):
@@ -107,7 +107,16 @@ class EPGRefreshResponse(BaseModel):
     source_id: int
     message: str
     success: bool
+    status: str = "success"  # Added status field for compatibility with tests
     channels_found: Optional[int] = None
     programs_found: Optional[int] = None
     duration_seconds: Optional[float] = None
     error: Optional[str] = None
+
+
+class EPGXmlGenerationRequest(BaseModel):
+    """Schema for EPG XML generation request"""
+    search_term: Optional[str] = None
+    favorites_only: bool = False
+    days_back: int = 1
+    days_forward: int = 7

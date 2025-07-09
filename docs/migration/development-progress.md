@@ -5,7 +5,7 @@ This document tracks the implementation progress of the Acestream Scraper rewrit
 ## Project Status
 
 **Current Phase**: Phase 3 - Advanced Features  
-**Last Updated**: June 8, 2025
+**Last Updated**: June 9, 2025
 
 ## Completed Items
 
@@ -64,11 +64,11 @@ This document tracks the implementation progress of the Acestream Scraper rewrit
 - [x] API controllers for channel management
   - [x] `GET /api/channels/`
   - [x] `GET /api/channels/{id}`
-  - [ ] `POST /api/channels/`
-  - [ ] `PUT /api/channels/{id}`
-  - [ ] `DELETE /api/channels/{id}`
-  - [ ] `POST /api/channels/{id}/check_status`
-  - [ ] `POST /api/channels/check_status_all`
+  - [x] `POST /api/channels/`
+  - [x] `PUT /api/channels/{id}`
+  - [x] `DELETE /api/channels/{id}`
+  - [x] `POST /api/channels/{id}/check_status`
+  - [x] `POST /api/channels/check_status_all`
 
 #### 3.2 URL Management and Scraping
 - [x] SQLAlchemy model for `ScrapedURL`
@@ -86,22 +86,22 @@ This document tracks the implementation progress of the Acestream Scraper rewrit
   - [x] `POST /api/scrapers/urls/scrape_all`
 
 #### 2.3 TV Channels Management
-- [ ] SQLAlchemy model for `TVChannel`
-- [ ] Pydantic DTOs for TV channels
-- [ ] TV channel repository implementation
-- [ ] TV channel service implementation
-- [ ] API controllers for TV channel management
-  - [ ] `GET /api/v1/tv-channels/`
-  - [ ] `POST /api/v1/tv-channels/`
-  - [ ] `GET /api/v1/tv-channels/{id}`
-  - [ ] `PUT /api/v1/tv-channels/{id}`
-  - [ ] `DELETE /api/v1/tv-channels/{id}`
-  - [ ] `GET /api/v1/tv-channels/{id}/acestreams`
-  - [ ] `POST /api/v1/tv-channels/{id}/acestreams`
-  - [ ] `DELETE /api/v1/tv-channels/{id}/acestreams/{acestream_id}`
-  - [ ] `POST /api/v1/tv-channels/batch-assign`
-  - [ ] `POST /api/v1/tv-channels/associate-by-epg`
-  - [ ] `POST /api/v1/tv-channels/bulk-update-epg`
+- [x] SQLAlchemy model for `TVChannel`
+- [x] Pydantic DTOs for TV channels
+- [x] TV channel repository implementation
+- [x] TV channel service implementation
+- [x] API controllers for TV channel management
+  - [x] `GET /api/v1/tv-channels/`
+  - [x] `POST /api/v1/tv-channels/`
+  - [x] `GET /api/v1/tv-channels/{id}`
+  - [x] `PUT /api/v1/tv-channels/{id}`
+  - [x] `DELETE /api/v1/tv-channels/{id}`
+  - [x] `GET /api/v1/tv-channels/{id}/acestreams`
+  - [x] `POST /api/v1/tv-channels/{id}/acestreams`
+  - [x] `DELETE /api/v1/tv-channels/{id}/acestreams/{acestream_id}`
+  - [x] `POST /api/v1/tv-channels/batch-assign`
+  - [x] `POST /api/v1/tv-channels/associate-by-epg`
+  - [x] `POST /api/v1/tv-channels/bulk-update-epg`
 
 ### Phase 3: Advanced Features
 
@@ -138,42 +138,46 @@ This document tracks the implementation progress of the Acestream Scraper rewrit
   - [x] `GET /api/v1/epg/channels/{id}/mappings`
   - [x] `POST /api/v1/epg/channels/{id}/mappings`
   - [x] `DELETE /api/v1/epg/mappings/{id}`
-- [ ] EPG XML generation
+- [x] EPG XML generation
+  - [x] `GET /api/v1/epg/xml`
+  - [x] `POST /api/v1/epg/xml`
 
 #### 3.3 Search Integration
-- [ ] Search service implementation
-- [ ] API controllers for search
-  - [ ] `GET /api/v1/search`
-  - [ ] `POST /api/v1/search/add`
-  - [ ] `POST /api/v1/search/add_multiple`
+- [x] Search service implementation
+- [x] API controllers for search
+  - [x] `GET /api/v1/search`
+  - [x] `POST /api/v1/search/add`
+  - [x] `POST /api/v1/search/add_multiple`
 
 #### 3.4 External Services Integration
-- [ ] WARP service implementation
-- [ ] Acexy integration
-- [ ] API controllers for WARP
-  - [ ] `GET /api/v1/warp/status`
-  - [ ] `POST /api/v1/warp/connect`
-  - [ ] `POST /api/v1/warp/disconnect`
-  - [ ] `POST /api/v1/warp/mode`
-  - [ ] `POST /api/v1/warp/license`
+- [x] WARP service implementation
+- [x] Acexy integration (incorporated into health checks)
+- [x] API controllers for WARP
+  - [x] `GET /api/v1/warp/status`
+  - [x] `POST /api/v1/warp/connect`
+  - [x] `POST /api/v1/warp/disconnect`
+  - [x] `POST /api/v1/warp/mode`
+  - [x] `POST /api/v1/warp/license`
+- [x] Frontend integration for WARP
+  - [x] WARP status and control page
+  - [x] React Query hooks for WARP
 
 #### 3.5 System Configuration and Health
-- [ ] Configuration service
-- [ ] Health check service
-- [ ] Stats collection service
-- [ ] API controllers for system management
-  - [ ] `GET /api/v1/config/base_url`
-  - [ ] `PUT /api/v1/config/base_url`
-  - [ ] `GET /api/v1/config/ace_engine_url`
-  - [ ] `PUT /api/v1/config/ace_engine_url`
-  - [ ] `GET /api/v1/config/rescrape_interval`
-  - [ ] `PUT /api/v1/config/rescrape_interval`
-  - [ ] `GET /api/v1/config/addpid`
-  - [ ] `PUT /api/v1/config/addpid`
-  - [ ] `GET /api/v1/config/acexy_status`
-  - [ ] `GET /api/v1/config/acestream_status`
-  - [ ] `GET /api/v1/health`
-  - [ ] `GET /api/v1/stats`
+- [x] Configuration service
+- [x] Health check service
+- [x] Stats collection service
+- [x] API controllers for system management
+  - [x] `GET /api/v1/config/base_url`
+  - [x] `PUT /api/v1/config/base_url`
+  - [x] `GET /api/v1/config/ace_engine_url`
+  - [x] `PUT /api/v1/config/ace_engine_url`
+  - [x] `GET /api/v1/config/rescrape_interval`
+  - [x] `PUT /api/v1/config/rescrape_interval`
+  - [x] `GET /api/v1/config/addpid`
+  - [x] `PUT /api/v1/config/addpid`
+  - [x] `GET /api/v1/config/acestream_status`
+  - [x] `GET /api/v1/health`
+  - [x] `GET /api/v1/stats`
 
 ### Phase 4: Frontend Implementation (TypeScript-Only)
 
@@ -186,9 +190,9 @@ This document tracks the implementation progress of the Acestream Scraper rewrit
 
 #### 4.2 Channel Management UI
 - [x] Channel list/grid view
-- [ ] Channel detail view
-- [ ] Add/edit channel forms
-- [ ] Status check interface
+- [x] Channel detail view
+- [x] Edit channel forms
+- [x] Status check interface
 
 #### 4.3 URL Management UI
 - [x] URL list view
@@ -196,9 +200,11 @@ This document tracks the implementation progress of the Acestream Scraper rewrit
 - [x] URL refresh interface
 
 #### 4.4 TV Channel Management UI
-- [ ] TV channel list/grid view
-- [ ] TV channel detail view
-- [ ] Acestream association interface
+- [x] TV channel list/grid view
+- [x] TV channel detail view
+- [x] Acestream association interface
+- [x] Batch association interface
+
 
 #### 4.5 Playlist and EPG UI
 - [x] Playlist generation interface
@@ -206,24 +212,30 @@ This document tracks the implementation progress of the Acestream Scraper rewrit
 - [x] EPG management interface
 
 #### 4.6 Search and Import UI
-- [ ] Search interface
-- [ ] Search results display
-- [ ] Import functionality
+- [x] Search interface
+- [x] Search results display
+- [x] Import functionality
 
 #### 4.7 Configuration and Status UI
-- [ ] Settings interface
-- [ ] Health dashboard
-- [ ] Statistics display
+- [x] Settings interface
+- [x] Health dashboard
+- [x] Statistics display
+- [x] WARP management interface
 
 ## Next Steps
 
-1. Complete the remaining API endpoints for channel status checking
-2. Implement the TV Channel models and endpoints
-3. Implement channel detail view and edit functionality
-4. Complete EPG XML generation
-5. Add search functionality
-6. Add authentication system (if needed)
-7. Add unit and integration tests
+1. ~~Implement channel detail view and edit functionality in frontend~~ (Completed)
+2. ~~Implement TV channel UI components and views~~ (Completed)
+3. ~~Complete EPG XML generation~~ (Completed)
+4. ~~Add search service and endpoints~~ (Completed)
+5. ~~Develop system configuration and health endpoints~~ (Completed)
+6. ~~Implement WARP service and UI~~ (Completed)
+7. Compile and run both backend and frontend to check for errors
+   - Use `run.bat` (Windows) or `run.sh` (Linux/macOS) scripts in the v2 directory
+   - Verify all features are working correctly
+   - Fix any bugs or issues discovered during testing
+8. Add authentication system (if needed)
+9. Add unit and integration tests
 
 ## Technical Notes
 
@@ -231,7 +243,7 @@ This document tracks the implementation progress of the Acestream Scraper rewrit
 
 For compatibility with the existing application, we're maintaining the same database schema structure. Key models to implement:
 
-```
+```sql
 - AcestreamChannel
 - ScrapedURL
 - TVChannel
@@ -245,6 +257,7 @@ For compatibility with the existing application, we're maintaining the same data
 ### API Endpoint Patterns
 
 All API endpoints follow these patterns:
+
 - Consistent error handling
 - Pydantic validation
 - OpenAPI documentation

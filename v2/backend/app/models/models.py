@@ -14,23 +14,33 @@ class ScrapedURL(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     url = Column(String(2048), unique=True, index=True, nullable=False)
-    last_scraped = Column(DateTime, default=datetime.utcnow)
+    url_type = Column(String(255), default="regular")  # 'regular', 'zeronet', etc.
     status = Column(String(255), default="pending")
-    error = Column(Text, nullable=True)
+    last_processed = Column(DateTime, nullable=True)
+    last_scraped = Column(DateTime, default=datetime.utcnow)  # Keep for backward compatibility
+    error_count = Column(Integer, default=0)
+    last_error = Column(Text, nullable=True)
+    error = Column(Text, nullable=True)  # Keep for backward compatibility
+    enabled = Column(Boolean, default=True)
+    added_at = Column(DateTime, default=datetime.utcnow)
     
     def update_status(self, status: str, error: str = None) -> None:
         """Update the status of this URL"""
         self.status = status
-        self.error = error
-        self.last_scraped = datetime.utcnow()
+        self.last_processed = datetime.utcnow()
+        self.last_scraped = datetime.utcnow()  # Keep for backward compatibility
+        
+        if status in ['failed', 'error']:
+            self.error_count += 1
+            self.last_error = error
+            self.error = error  # Keep for backward compatibility
 
 
 class AcestreamChannel(Base):
     """Model for Acestream channels"""
     __tablename__ = "acestream_channels"
     
-    id = Column(Integer, primary_key=True, index=True)
-    channel_id = Column(String(255), unique=True, index=True, nullable=False)
+    id = Column(String(255), primary_key=True, index=True)  # Use GUID from v1 as primary key
     name = Column(String(255))
     group = Column(String(255), nullable=True, index=True)
     logo = Column(String(2048), nullable=True)
@@ -41,6 +51,7 @@ class AcestreamChannel(Base):
     is_active = Column(Boolean, default=True)
     is_online = Column(Boolean, nullable=True)
     last_checked = Column(DateTime, nullable=True)
+    check_error = Column(Text, nullable=True)
     original_url = Column(String(2048), nullable=True)
     epg_update_protected = Column(Boolean, default=False)
     
@@ -139,7 +150,33 @@ class EPGStringMapping(Base):
     
     # Relationships
     epg_channel = relationship("EPGChannel", back_populates="string_mappings")
+
+
+class Setting(Base):
+    """Model for application settings"""
+    __tablename__ = "settings"
     
-    # Relationships
-    acestream_channels = relationship("AcestreamChannel", back_populates="tv_channel")
-    epg_channels = relationship("EPGChannel", back_populates="tv_channel")
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(255), unique=True, index=True, nullable=False)
+    value = Column(String(1024), nullable=True)
+    description = Column(String(1024), nullable=True)
+    
+    @classmethod
+    def get_setting(cls, db, key, default=None):
+        """Get a setting value by key"""
+        setting = db.query(cls).filter(cls.key == key).first()
+        return setting.value if setting else default
+    
+    @classmethod
+    def set_setting(cls, db, key, value, description=None):
+        """Set a setting value"""
+        setting = db.query(cls).filter(cls.key == key).first()
+        if setting:
+            setting.value = value
+            if description:
+                setting.description = description
+        else:
+            setting = cls(key=key, value=value, description=description)
+            db.add(setting)
+        db.commit()
+        return setting

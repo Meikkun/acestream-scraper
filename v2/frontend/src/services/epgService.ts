@@ -83,6 +83,16 @@ export interface EPGChannelMappingDTO {
 }
 
 /**
+ * EPG XML Generation Parameters
+ */
+export interface EPGXMLGenerationParams {
+  search_term?: string;
+  favorites_only?: boolean;
+  days_back?: number;
+  days_forward?: number;
+}
+
+/**
  * EPG Refresh Result interface
  */
 export interface EPGRefreshResult {
@@ -219,6 +229,52 @@ export const epgService = {
    */
   deleteStringMapping: async (id: number): Promise<void> => {
     await apiClient.delete(`/v1/epg/mappings/${id}`);
+  },
+
+  /**
+   * Generate EPG XML with the specified parameters
+   * Returns the URL for downloading the XML
+   */
+  generateEPGXML: async (params?: EPGXMLGenerationParams): Promise<string> => {
+    // Create query string from parameters
+    const queryParams = new URLSearchParams();
+    
+    if (params?.search_term) {
+      queryParams.append('search_term', params.search_term);
+    }
+    
+    if (params?.favorites_only) {
+      queryParams.append('favorites_only', 'true');
+    }
+    
+    if (params?.days_back !== undefined) {
+      queryParams.append('days_back', params.days_back.toString());
+    }
+    
+    if (params?.days_forward !== undefined) {
+      queryParams.append('days_forward', params.days_forward.toString());
+    }
+    
+    // Construct the full URL including the API base URL
+    const baseUrl = apiClient.defaults.baseURL || '';
+    const url = `${baseUrl}/v1/epg/xml?${queryParams.toString()}`;
+    
+    return url;
+  },
+  
+  /**
+   * Generate and download EPG XML file
+   */
+  downloadEPGXML: async (params?: EPGXMLGenerationParams): Promise<void> => {
+    const url = await epgService.generateEPGXML(params);
+    
+    // Create an anchor element and trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'epg.xml');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 };
 

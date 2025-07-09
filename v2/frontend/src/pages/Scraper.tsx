@@ -23,7 +23,8 @@ import {
   MenuItem,
   LinearProgress,
   Alert,
-  Snackbar
+  Snackbar,
+  SelectChangeEvent
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -83,7 +84,7 @@ const Scraper: React.FC = () => {
     setOpenDialog(false);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.name as keyof URLFormData;
     const value = e.target.name === 'enabled' 
       ? (e.target as HTMLInputElement).checked
@@ -92,6 +93,25 @@ const Scraper: React.FC = () => {
     setFormData({
       ...formData,
       [name]: value
+    });
+  };
+
+  const handleSelectChange = (e: SelectChangeEvent<string>) => {
+    const name = e.target.name as keyof URLFormData;
+    const value = e.target.value;
+    
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+  };
+
+  const handleEnabledChange = (e: SelectChangeEvent<string>) => {
+    const value = e.target.value === 'true';
+    
+    setFormData({
+      ...formData,
+      enabled: value
     });
   };
 
@@ -125,7 +145,7 @@ const Scraper: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm('Are you sure you want to delete this URL?')) {
+    if (window.confirm('Are you sure you want to delete this URL?')) {
       try {
         await deleteURL.mutateAsync(id);
         setSnackbar({
@@ -162,7 +182,7 @@ const Scraper: React.FC = () => {
   };
 
   const handleScrapeAll = async () => {
-    if (confirm('Start scraping all enabled URLs?')) {
+    if (window.confirm('Start scraping all enabled URLs?')) {
       try {
         await scrapeAllURLs.mutateAsync();
         setSnackbar({
@@ -297,7 +317,7 @@ const Scraper: React.FC = () => {
               name="url_type"
               value={formData.url_type}
               label="URL Type"
-              onChange={handleChange}
+              onChange={handleSelectChange}
             >
               <MenuItem value="auto">Auto-detect</MenuItem>
               <MenuItem value="regular">Regular HTTP</MenuItem>
@@ -308,12 +328,12 @@ const Scraper: React.FC = () => {
             <InputLabel>Status</InputLabel>
             <Select
               name="enabled"
-              value={formData.enabled}
+              value={formData.enabled ? 'true' : 'false'}
               label="Status"
-              onChange={handleChange}
+              onChange={handleEnabledChange}
             >
-              <MenuItem value={true}>Enabled</MenuItem>
-              <MenuItem value={false}>Disabled</MenuItem>
+              <MenuItem value="true">Enabled</MenuItem>
+              <MenuItem value="false">Disabled</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>

@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Typography, Box, Button, Alert, Paper } from '@mui/material';
 import { Add, Refresh } from '@mui/icons-material';
 import { GridSortModel } from '@mui/x-data-grid';
 import ChannelTable from '../components/ChannelTable';
 import { useChannels, useCheckChannelStatus, useDeleteChannel } from '../hooks/useChannels';
-import { ChannelFilters } from '../services/channelService';
+import { ChannelFilters, channelService } from '../services/channelService';
 import { getErrorMessage } from '../utils/errorUtils';
 
 /**
@@ -32,28 +33,29 @@ const Channels: React.FC = () => {
   });
 
   const deleteChannel = useDeleteChannel();
-  const checkStatus = useCheckChannelStatus('');
-
+  
   // Handler for check status
   const handleCheckStatus = useCallback((id: string) => {
     setCheckingStatus(prev => ({ ...prev, [id]: true }));
     
-    checkStatus.mutate(id, {
-      onSuccess: () => {
+    channelService.checkChannelStatus(id)
+      .then(() => {
         setCheckingStatus(prev => ({ ...prev, [id]: false }));
-      },
-      onError: (err) => {
+        // Refetch channels to get updated status
+        refetch();
+      })
+      .catch((err: any) => {
         setCheckingStatus(prev => ({ ...prev, [id]: false }));
         setError(`Failed to check status: ${getErrorMessage(err)}`);
-      }
-    });
-  }, [checkStatus]);
+      });
+  }, []);
 
   // Handler for editing a channel
-  const handleEdit = useCallback((channel) => {
-    // To be implemented - open edit dialog
-    console.log('Edit channel:', channel);
-  }, []);
+  const navigate = useNavigate();
+  
+  const handleEdit = useCallback((channel: any) => {
+    navigate(`/channels/${channel.id}`);
+  }, [navigate]);
 
   // Handler for deleting a channel
   const handleDelete = useCallback((id: string) => {
@@ -80,53 +82,60 @@ const Channels: React.FC = () => {
 
   return (
     <Box sx={{ width: '100%' }}>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1">
-          Channels
-        </Typography>
-        <Box>
-          <Button
-            variant="outlined"
-            startIcon={<Refresh />}
-            onClick={() => refetch()}
-            sx={{ mr: 1 }}
-          >
-            Refresh
-          </Button>
-          <Button 
-            variant="contained" 
-            startIcon={<Add />}
-            onClick={() => {/* To be implemented - open add channel dialog */}}
-          >
-            Add Channel
-          </Button>
+      <>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h4" component="h1">
+            Channels
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              startIcon={<Refresh />}
+              onClick={() => refetch()}
+            >
+              Refresh
+            </Button>
+            <Button 
+              variant="contained" 
+              startIcon={<Add />}
+              onClick={() => {/* To be implemented - open add channel dialog */}}
+            >
+              Add Channel
+            </Button>
+          </Box>
         </Box>
-      </Box>
-      
-      {(error || fetchError) && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error || getErrorMessage(fetchError)}
-        </Alert>
-      )}
-      
-      <Paper sx={{ p: 2 }}>
-        <ChannelTable 
-          channels={channels || []}
-          loading={isLoading}
-          onCheckStatus={handleCheckStatus}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          checkingStatus={checkingStatus}
-          filters={filters}
-          onFilterChange={handleFilterChange}
-          totalCount={100} // This should come from API
-          page={page}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-          onSortChange={handleSortChange}
-        />
-      </Paper>
+        
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+        
+        {fetchError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {typeof fetchError === 'string' ? fetchError : getErrorMessage(fetchError)}
+          </Alert>
+        )}
+        
+        <Paper sx={{ p: 2 }}>
+          <ChannelTable 
+            channels={channels || []}
+            loading={isLoading}
+            onCheckStatus={handleCheckStatus}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            checkingStatus={checkingStatus}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            totalCount={100} // This should come from API
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            onSortChange={handleSortChange}
+          />
+        </Paper>
+      </>
     </Box>
   );
 };
