@@ -2,6 +2,9 @@ import os
 import tempfile
 import shutil
 from app.utils import path
+from unittest.mock import patch
+from pathlib import Path
+
 
 def test_config_dir_local(monkeypatch):
     monkeypatch.delenv('DOCKER_ENVIRONMENT', raising=False)
@@ -15,15 +18,19 @@ def test_log_dir_local(monkeypatch):
     assert log_path.exists()
     assert 'logs' in str(log_path)
 
-def test_config_dir_docker(monkeypatch):
+@patch.object(Path, 'mkdir')
+def test_config_dir_docker(mock_mkdir, monkeypatch):
     monkeypatch.setenv('DOCKER_ENVIRONMENT', '1')
     config_path = path.config_dir()
     assert config_path.as_posix() == '/config'
+    mock_mkdir.assert_called()
 
-def test_log_dir_docker(monkeypatch):
+@patch.object(Path, 'mkdir')
+def test_log_dir_docker(mock_mkdir, monkeypatch):
     monkeypatch.setenv('DOCKER_ENVIRONMENT', '1')
     log_path = path.log_dir()
     assert log_path.as_posix() == '/config/logs'
+    mock_mkdir.assert_called()
 
 def test_get_database_path(monkeypatch):
     monkeypatch.delenv('DOCKER_ENVIRONMENT', raising=False)

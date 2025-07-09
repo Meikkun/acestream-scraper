@@ -706,3 +706,66 @@ The following frontend features are missing or incomplete and must be implemente
 **Status:** Frontend migration in progress. Backend is 100% complete and tested. All remaining work is UI/UX and frontend feature parity.
 
 ---
+
+## 🟠 **Frontend Migration Status Update (2025-07-09)**
+
+### **Current State**
+
+- **Core UI/UX for all major backend features is present in V2 frontend.**
+- **All main entity CRUD, search, playlist, EPG, WARP, config, and health/status features are implemented as pages or dialogs.**
+- **Dialogs/modals from V1 are implemented as in-page dialogs in V2 (e.g., add/edit channel, URL, EPG source, string mapping, TV channel mapping).**
+- **Navigation and page structure covers all major workflows from V1.**
+
+### **Feature Parity Table (V2 Frontend vs V1)**
+
+| Feature/Section               | V1 (templates/static) | V2 Frontend (pages/components) | Status      | Notes                                                              |
+| ----------------------------- | --------------------- | ------------------------------ | ----------- | ------------------------------------------------------------------ |
+| Channel CRUD/Status           | channels.html, JS     | Channels, ChannelDetail        | ✅ Complete |                                                                    |
+| TV Channel CRUD/Detail        | tv_channels.html, JS  | TVChannels, TVChannelDetail    | ✅ Complete |                                                                    |
+| EPG Management                | epg.html, JS          | EPG, EPGChannelDetail          | ✅ Complete | Includes sources, channels, XML, mapping, string mapping           |
+| Playlist Generation           | streams.html, JS      | Playlist                       | ✅ Complete |                                                                    |
+| URL Scraping/Management       | urls.js, setup.html   | Scraper                        | ✅ Complete |                                                                    |
+| Channel Search/Add            | search.html, JS       | Search, SearchNew              | ✅ Complete |                                                                    |
+| WARP Management               | warp.js               | WARP                           | ✅ Complete |                                                                    |
+| Settings/Config               | config.html, JS       | Settings                       | ✅ Complete | Covers most config, may lack some advanced options                 |
+| Health/Status Dashboard       | dashboard.html, JS    | Health, Dashboard              | 🟡 Partial  | Health page covers most, but may lack full V1 dashboard/monitoring |
+| Statistics                    | stats_card.html, JS   | Health (partial)               | 🟡 Partial  | No dedicated statistics page/component                             |
+| EPG String Mapping Management | modals, partials      | EPGChannelDetail (per-channel) | 🟡 Partial  | No global EPGMappings management page                              |
+| Bulk/Batch Operations         | batch_assign, modals  | -                              | 🔴 Missing  | No dedicated UI for batch/bulk edit/assign/delete                  |
+| Advanced Search/Filtering     | search.html, JS       | Search (basic)                 | 🟡 Partial  | No advanced search/filtering UI (by group, status, etc.)           |
+| Batch Assignment/Modals       | batch_assign, modals  | -                              | 🔴 Missing  | Not present as standalone components                               |
+| Partial/Modal Coverage        | modals, forms         | Dialogs in pages               | 🟡 Partial  | Not all legacy modal workflows present                             |
+
+### **Summary of Gaps/Missing Features**
+
+- **Bulk/Batch Operations:** No dedicated UI for batch/bulk edit, assign, or delete (only single actions in tables).
+- **Advanced Search/Filtering:** Basic search and filters present, but no advanced search/filtering UI (e.g., by group, status, category, etc.).
+- **Statistics:** Health page shows some stats, but no dedicated, detailed statistics page/component.
+- **EPG String Mapping Management:** Present in EPGChannelDetail, but no global EPGMappings management page.
+- **System Health/Monitoring:** Health page exists, but may lack full parity with V1 dashboard (e.g., error logs, disk/memory, service status).
+- **Configuration UI:** Settings page covers most config, but may lack some advanced/admin options from V1.
+- **Batch Assignment/Modals:** Some batch/assignment modals from V1 (e.g., batch_assign, bulk_edit_tv_channels) are not present as standalone components.
+- **Partial/Modal Coverage:** All modals are implemented as in-page dialogs, but not all legacy modal workflows are present (e.g., create_tv_channel_from_epg).
+
+### **Next Steps for Full Parity**
+
+1. **Implement dedicated Bulk/Batch Operations UI** (batch assign, bulk edit/delete, progress tracking).
+2. **Add Advanced Search/Filtering UI** (category, group, status, sorting, etc.).
+3. **Create a dedicated Statistics page/component** for system/channel/URL/EPG stats.
+4. **Implement a global EPGMappings management page** for string mapping CRUD and auto-mapping tools.
+5. **Enhance Health/Monitoring dashboard** to match or exceed V1 (add error logs, disk/memory, service status, etc.).
+6. **Review and complete all configuration/admin options in Settings.**
+7. **Audit and port any remaining legacy modal workflows as needed.**
+
+### **Frontend Parity TODO Checklist**
+
+```markdown
+- [ ] Implement dedicated Bulk/Batch Operations UI (batch assign, bulk edit/delete, progress tracking) 🟡 In Progress
+- [ ] Add Advanced Search/Filtering UI (category, group, status, sorting, etc.)
+- [ ] Create a dedicated Statistics page/component for system/channel/URL/EPG stats
+- [ ] Implement a global EPGMappings management page for string mapping CRUD and auto-mapping tools
+- [ ] Enhance Health/Monitoring dashboard to match or exceed V1 (add error logs, disk/memory, service status, etc.)
+- [ ] Review and complete all configuration/admin options in Settings
+- [ ] Audit and port any remaining legacy modal workflows (e.g., create_tv_channel_from_epg, batch_assign, bulk_edit_tv_channels)
+- [ ] Test all new frontend features and update documentation
+```

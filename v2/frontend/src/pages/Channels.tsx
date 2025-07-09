@@ -7,6 +7,8 @@ import ChannelTable from '../components/ChannelTable';
 import { useChannels, useCheckChannelStatus, useDeleteChannel } from '../hooks/useChannels';
 import { ChannelFilters, channelService } from '../services/channelService';
 import { getErrorMessage } from '../utils/errorUtils';
+import BulkOperations from '../components/BulkOperations';
+import AdvancedSearch, { AdvancedSearchFilters } from '../components/AdvancedSearch';
 
 /**
  * Channels page component
@@ -19,13 +21,15 @@ const Channels: React.FC = () => {
   const [filters, setFilters] = useState<ChannelFilters>({});
   const [checkingStatus, setCheckingStatus] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
-  
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+
   // Queries and mutations
-  const { 
-    data: channels = [], 
+  const {
+    data: channels = [],
     isLoading,
     refetch,
-    error: fetchError 
+    error: fetchError
   } = useChannels({
     ...filters,
     page: page + 1, // Backend uses 1-based indexing
@@ -33,11 +37,11 @@ const Channels: React.FC = () => {
   });
 
   const deleteChannel = useDeleteChannel();
-  
+
   // Handler for check status
   const handleCheckStatus = useCallback((id: string) => {
     setCheckingStatus(prev => ({ ...prev, [id]: true }));
-    
+
     channelService.checkChannelStatus(id)
       .then(() => {
         setCheckingStatus(prev => ({ ...prev, [id]: false }));
@@ -52,7 +56,7 @@ const Channels: React.FC = () => {
 
   // Handler for editing a channel
   const navigate = useNavigate();
-  
+
   const handleEdit = useCallback((channel: any) => {
     navigate(`/channels/${channel.id}`);
   }, [navigate]);
@@ -80,6 +84,26 @@ const Channels: React.FC = () => {
     // Implement server-side sorting logic here
   }, []);
 
+  // Handler for advanced search/filter changes
+  const handleAdvancedSearch = (adv: AdvancedSearchFilters) => {
+    setFilters({ ...filters, ...adv });
+    setPage(0);
+  };
+
+  // Bulk action handlers (stubbed for now)
+  const handleBulkEdit = async (updates: any) => {
+    await Promise.all(selectedIds.map(id => channelService.updateChannel(id, updates)));
+    refetch();
+  };
+  const handleBulkDelete = async () => {
+    await Promise.all(selectedIds.map(id => channelService.deleteChannel(id)));
+    refetch();
+  };
+  const handleBulkActivate = async (active: boolean) => {
+    await Promise.all(selectedIds.map(id => channelService.updateChannel(id, { is_active: active })));
+    refetch();
+  };
+
   return (
     <Box sx={{ width: '100%' }}>
       <>
@@ -95,8 +119,8 @@ const Channels: React.FC = () => {
             >
               Refresh
             </Button>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               startIcon={<Add />}
               onClick={() => {/* To be implemented - open add channel dialog */}}
             >
@@ -104,21 +128,34 @@ const Channels: React.FC = () => {
             </Button>
           </Box>
         </Box>
-        
+
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
-        
+
         {fetchError && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {typeof fetchError === 'string' ? fetchError : getErrorMessage(fetchError)}
           </Alert>
         )}
-        
+
+        <AdvancedSearch
+          filters={filters}
+          onChange={handleAdvancedSearch}
+          categories={[]} // TODO: fetch categories from API or state
+          groups={[]}     // TODO: fetch groups from API or state
+        />
         <Paper sx={{ p: 2 }}>
-          <ChannelTable 
+          {selectedIds.length > 0 && (
+            <Box mb={2} display="flex" justifyContent="flex-end">
+              <Button variant="contained" color="secondary" onClick={() => setBulkOpen(true)}>
+                Bulk Actions ({selectedIds.length})
+              </Button>
+            </Box>
+          )}
+          <ChannelTable
             channels={channels || []}
             loading={isLoading}
             onCheckStatus={handleCheckStatus}
@@ -133,8 +170,17 @@ const Channels: React.FC = () => {
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
             onSortChange={handleSortChange}
+            onSelectionChange={setSelectedIds}
           />
         </Paper>
+        <BulkOperations
+          open={bulkOpen}
+          onClose={() => setBulkOpen(false)}
+          selectedChannels={channels.filter((c: any) => selectedIds.includes(c.id))}
+          onBulkEdit={handleBulkEdit}
+          onBulkDelete={handleBulkDelete}
+          onBulkActivate={handleBulkActivate}
+        />
       </>
     </Box>
   );

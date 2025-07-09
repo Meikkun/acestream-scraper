@@ -45,14 +45,18 @@ async def connect_to_warp(request: Request):
         Success message if the connection was successful.
     """
     try:
-        body = await request.json() if request.method == "POST" else {}
+        try:
+            body = await request.json() if request.method == "POST" else {}
+        except Exception:
+            body = {}
         mode = body.get("mode") if isinstance(body, dict) else None
         if mode:
             result = await warp_service.connect(mode=mode)
         else:
             result = await warp_service.connect()
-        # Await result if it's a coroutine (for AsyncMock in tests)
-        if asyncio.iscoroutine(result):
+        # Robustly await result until it is not a coroutine (handles AsyncMock double-async)
+        import asyncio
+        while asyncio.iscoroutine(result):
             result = await result
         if not result.get("success", False):
             return JSONResponse(content={

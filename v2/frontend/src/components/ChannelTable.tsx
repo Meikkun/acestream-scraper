@@ -28,6 +28,7 @@ interface ChannelTableProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onSortChange: (model: GridSortModel) => void;
+  onSelectionChange?: (selectedIds: string[]) => void;
 }
 
 /**
@@ -48,6 +49,7 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
   onPageChange,
   onPageSizeChange,
   onSortChange,
+  onSelectionChange,
 }) => {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
@@ -72,8 +74,8 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
       headerName: 'Status',
       width: 120,
       renderCell: (params: GridRenderCellParams<Channel>) => (
-        <Chip 
-          label={params.row.status} 
+        <Chip
+          label={params.row.status}
           color={params.row.status === 'active' ? 'success' : 'default'}
           size="small"
         />
@@ -115,8 +117,8 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
       renderCell: (params: GridRenderCellParams<Channel>) => (
         <Box sx={{ display: 'flex' }}>
           <Tooltip title="Check status">
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               onClick={(e) => {
                 e.stopPropagation();
                 onCheckStatus(params.row.id);
@@ -131,8 +133,8 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
             </IconButton>
           </Tooltip>
           <Tooltip title="Edit">
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit(params.row);
@@ -142,8 +144,8 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete">
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(params.row.id);
@@ -161,7 +163,7 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
   const handleFilterModelChange = (model: GridFilterModel) => {
     setFilterModel(model);
     const newFilters: ChannelFilters = { ...filters };
-    
+
     // Convert grid filters to API filters
     if (model.items.length > 0) {
       model.items.forEach(item => {
@@ -177,7 +179,7 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
       delete newFilters.search;
       delete newFilters.group;
     }
-    
+
     onFilterChange(newFilters);
   };
 
@@ -188,7 +190,10 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
       loading={loading}
       filterModel={filterModel}
       onFilterModelChange={handleFilterModelChange}
-      disableRowSelectionOnClick
+      checkboxSelection
+      onRowSelectionModelChange={(ids) => {
+        if (onSelectionChange) onSelectionChange(ids as string[]);
+      }}
       onRowClick={(params) => onEdit(params.row)}
       autoHeight
       pagination
