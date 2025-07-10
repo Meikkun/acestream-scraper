@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Typography, Box, Button, Alert, Paper } from '@mui/material';
 import { Add, Refresh } from '@mui/icons-material';
@@ -23,6 +23,12 @@ const Channels: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkOpen, setBulkOpen] = useState(false);
+
+  // State for categories/groups
+  const [categories, setCategories] = useState<string[]>([]);
+  const [groups, setGroups] = useState<string[]>([]);
+  const [catGroupLoading, setCatGroupLoading] = useState(false);
+  const [catGroupError, setCatGroupError] = useState<string|null>(null);
 
   // Queries and mutations
   const {
@@ -96,13 +102,31 @@ const Channels: React.FC = () => {
     refetch();
   };
   const handleBulkDelete = async () => {
-    await Promise.all(selectedIds.map(id => channelService.deleteChannel(id)));
+    await Promise.all(selectedIds.map((id) => channelService.deleteChannel(id)));
     refetch();
   };
   const handleBulkActivate = async (active: boolean) => {
     await Promise.all(selectedIds.map(id => channelService.updateChannel(id, { is_active: active })));
     refetch();
   };
+
+  // Fetch categories and groups on mount
+  useEffect(() => {
+    setCatGroupLoading(true);
+    setCatGroupError(null);
+    Promise.all([
+      channelService.getCategories?.() ?? Promise.resolve([]),
+      channelService.getGroups?.() ?? Promise.resolve([])
+    ])
+      .then(([cats, grps]) => {
+        setCategories(cats || []);
+        setGroups(grps || []);
+      })
+      .catch((err) => {
+        setCatGroupError(getErrorMessage(err));
+      })
+      .finally(() => setCatGroupLoading(false));
+  }, []);
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -141,11 +165,17 @@ const Channels: React.FC = () => {
           </Alert>
         )}
 
+        {catGroupError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Failed to load categories/groups: {catGroupError}
+          </Alert>
+        )}
+
         <AdvancedSearch
           filters={filters}
           onChange={handleAdvancedSearch}
-          categories={[]} // TODO: fetch categories from API or state
-          groups={[]}     // TODO: fetch groups from API or state
+          categories={categories}
+          groups={groups}
         />
         <Paper sx={{ p: 2 }}>
           {selectedIds.length > 0 && (

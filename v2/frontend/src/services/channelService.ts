@@ -55,7 +55,8 @@ export interface UpdateChannelDTO {
   original_url?: string;
   epg_update_protected?: boolean;
   tv_channel_id?: number;
-  is_online?: boolean;
+  is_online?: boolean; // For online/offline status
+  is_active?: boolean; // For activation/deactivation (matches backend)
 }
 
 /**
@@ -118,6 +119,28 @@ const channelService = {
    */
   checkChannelStatus: async (id: string): Promise<Channel> => {
     const { data } = await apiClient.post(`/v1/channels/${id}/check_status`);
+    return data;
+  },
+
+  /**
+   * Get all unique channel categories
+   */
+  getCategories: async () => {
+    try {
+      const { data: categories } = await apiClient.get('/v1/channels/categories');
+      return categories as string[];
+    } catch {
+      const { data: channels } = await apiClient.get('/v1/channels');
+      const categories = Array.from(new Set((channels || []).map((c: any) => String(c.category)).filter((v: string) => !!v)));
+      return categories.map(String); // Ensure string[]
+    }
+  },
+
+  /**
+   * Get all unique channel groups
+   */
+  getGroups: async (): Promise<string[]> => {
+    const { data } = await apiClient.get('/v1/channels/groups');
     return data;
   },
 };

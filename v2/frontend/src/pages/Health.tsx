@@ -25,7 +25,7 @@ const Health: React.FC = () => {
   const { data: healthData, isLoading: healthLoading, error: healthError, refetch: refetchHealth } = useHealth({
     refetchInterval: 60000 // Refetch every minute
   });
-  
+
   const { data: statsData, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useStats({
     refetchInterval: 60000 // Refetch every minute
   });
@@ -33,11 +33,11 @@ const Health: React.FC = () => {
   // Helper function to render health status
   const renderHealthStatus = () => {
     if (!healthData) return null;
-    
+
     const { status } = healthData;
     let icon;
     let color;
-    
+
     switch (status) {
       case 'healthy':
         icon = <CheckCircleOutlineIcon />;
@@ -51,9 +51,9 @@ const Health: React.FC = () => {
         icon = <ErrorOutlineIcon />;
         color = 'error';
     }
-    
+
     return (
-      <Chip 
+      <Chip
         icon={icon}
         label={status.toUpperCase()}
         color={color as any}
@@ -106,11 +106,11 @@ const Health: React.FC = () => {
             <CardContent>
               <List>
                 <ListItem>
-                  <ListItemText 
-                    primary="Acestream Engine" 
-                    secondary={healthData?.acestream.message || 'Status unknown'} 
+                  <ListItemText
+                    primary="Acestream Engine"
+                    secondary={healthData?.acestream.message || 'Status unknown'}
                   />
-                  <Chip 
+                  <Chip
                     label={healthData?.acestream.status.toUpperCase()}
                     color={
                       healthData?.acestream.status === 'online' ? 'success' :
@@ -121,14 +121,14 @@ const Health: React.FC = () => {
                 </ListItem>
                 <Divider component="li" />
                 <ListItem>
-                  <ListItemText 
-                    primary="Software Version" 
-                    secondary={healthData?.version || 'Unknown'} 
+                  <ListItemText
+                    primary="Software Version"
+                    secondary={healthData?.version || 'Unknown'}
                   />
                 </ListItem>
               </List>
-              <Button 
-                variant="outlined" 
+              <Button
+                variant="outlined"
                 onClick={() => refetchHealth()}
                 sx={{ mt: 2 }}
               >
@@ -148,9 +148,9 @@ const Health: React.FC = () => {
                 {healthData?.settings && Object.entries(healthData.settings).map(([key, value]) => (
                   <React.Fragment key={key}>
                     <ListItem>
-                      <ListItemText 
-                        primary={key} 
-                        secondary={value} 
+                      <ListItemText
+                        primary={key}
+                        secondary={value}
                       />
                     </ListItem>
                     <Divider component="li" />
@@ -170,19 +170,19 @@ const Health: React.FC = () => {
               {statsData ? (
                 <List dense>
                   <ListItem>
-                    <ListItemText primary="Total Channels" secondary={statsData.channels.total.toString()} />
+                    <ListItemText primary="Total Channels" secondary={statsData?.channels?.total != null ? statsData.channels.total.toString() : 'N/A'} />
                   </ListItem>
                   <Divider component="li" />
                   <ListItem>
-                    <ListItemText primary="Online Channels" secondary={statsData.channels.online.toString()} />
+                    <ListItemText primary="Online Channels" secondary={statsData?.channels?.online != null ? statsData.channels.online.toString() : 'N/A'} />
                   </ListItem>
                   <Divider component="li" />
                   <ListItem>
-                    <ListItemText primary="Offline Channels" secondary={statsData.channels.offline.toString()} />
+                    <ListItemText primary="Offline Channels" secondary={statsData?.channels?.offline != null ? statsData.channels.offline.toString() : 'N/A'} />
                   </ListItem>
                   <Divider component="li" />
                   <ListItem>
-                    <ListItemText primary="Unknown Status" secondary={statsData.channels.unknown.toString()} />
+                    <ListItemText primary="Unknown Status" secondary={statsData?.channels?.unknown != null ? statsData.channels.unknown.toString() : 'N/A'} />
                   </ListItem>
                 </List>
               ) : (
@@ -201,15 +201,15 @@ const Health: React.FC = () => {
               {statsData ? (
                 <List dense>
                   <ListItem>
-                    <ListItemText primary="Total URLs" secondary={statsData.urls.total.toString()} />
+                    <ListItemText primary="Total URLs" secondary={statsData?.urls?.total != null ? statsData.urls.total.toString() : 'N/A'} />
                   </ListItem>
                   <Divider component="li" />
                   <ListItem>
-                    <ListItemText primary="Active URLs" secondary={statsData.urls.active.toString()} />
+                    <ListItemText primary="Active URLs" secondary={statsData?.urls?.active != null ? statsData.urls.active.toString() : 'N/A'} />
                   </ListItem>
                   <Divider component="li" />
                   <ListItem>
-                    <ListItemText primary="Error URLs" secondary={statsData.urls.error.toString()} />
+                    <ListItemText primary="Error URLs" secondary={statsData?.urls?.error != null ? statsData.urls.error.toString() : 'N/A'} />
                   </ListItem>
                 </List>
               ) : (
@@ -228,15 +228,15 @@ const Health: React.FC = () => {
               {statsData ? (
                 <List dense>
                   <ListItem>
-                    <ListItemText primary="EPG Sources" secondary={statsData.epg.sources.toString()} />
+                    <ListItemText primary="EPG Sources" secondary={statsData?.epg?.sources != null ? statsData.epg.sources.toString() : 'N/A'} />
                   </ListItem>
                   <Divider component="li" />
                   <ListItem>
-                    <ListItemText primary="EPG Channels" secondary={statsData.epg.channels.toString()} />
+                    <ListItemText primary="EPG Channels" secondary={statsData?.epg?.channels != null ? statsData.epg.channels.toString() : 'N/A'} />
                   </ListItem>
                   <Divider component="li" />
                   <ListItem>
-                    <ListItemText primary="EPG Programs" secondary={statsData.epg.programs.toString()} />
+                    <ListItemText primary="EPG Programs" secondary={statsData?.epg?.programs != null ? statsData.epg.programs.toString() : 'N/A'} />
                   </ListItem>
                 </List>
               ) : (

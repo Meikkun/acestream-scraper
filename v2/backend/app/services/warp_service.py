@@ -195,6 +195,7 @@ class WarpService:
     async def get_status(self) -> Dict[str, Any]:
         """Get the current status of WARP"""
         status = {
+            "status": "disconnected",  # Add top-level status
             "running": False,
             "connected": False,
             "mode": None,
@@ -215,8 +216,10 @@ class WarpService:
             for line in stdout.splitlines():
                 if "Status update:" in line and "Connected" in line:
                     status["connected"] = True
+                    status["status"] = "connected"
                 elif "Status update:" in line and "Disconnected" in line:
                     status["connected"] = False
+                    status["status"] = "disconnected"
 
         # Get current mode
         mode = await self.get_mode()

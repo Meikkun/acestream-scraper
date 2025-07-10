@@ -49,6 +49,8 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string|null>(null);
   const [success, setSuccess] = useState<string|null>(null);
+  const [operationResults, setOperationResults] = useState<{ id: any; status: 'pending'|'success'|'error'; message?: string }[]>([]);
+  const [summary, setSummary] = useState<{ success: number; error: number }>({ success: 0, error: 0 });
 
   const handleFieldToggle = (field: string) => {
     setEditFields(prev => ({ ...prev, [field]: !prev[field as keyof typeof prev] }));
@@ -62,6 +64,39 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
     }));
   };
 
+  const handleClose = () => {
+    if (!loading) onClose();
+  };
+
+  const runPerChannel = async (fn: (channel: any) => Promise<any>) => {
+    setOperationResults(selectedChannels.map(ch => ({ id: ch.id, status: 'pending' })));
+    setSummary({ success: 0, error: 0 });
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    let success = 0, error = 0;
+    const results = await Promise.all(selectedChannels.map(async (ch, idx) => {
+      try {
+        await fn(ch);
+        success++;
+        return { id: ch.id, status: 'success' as const };
+      } catch (err: any) {
+        error++;
+        const errorMsg = err?.message || 'Failed';
+        return { id: ch.id, status: 'error' as const, message: errorMsg };
+      }
+    }));
+    setOperationResults(results);
+    setSummary({ success, error });
+    setLoading(false);
+    if (error === 0) {
+      setSuccess('All operations completed successfully.');
+      setTimeout(() => { setSuccess(null); onClose(); }, 1500);
+    } else {
+      setError(`${error} operation(s) failed, ${success} succeeded.`);
+    }
+  };
+
   const handleBulkEdit = async () => {
     setLoading(true);
     setError(null);
@@ -72,9 +107,9 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
           updates[field] = editValues[field as keyof typeof editValues];
         }
       });
-      await onBulkEdit(updates);
-      setSuccess('Channels updated successfully.');
-      setTimeout(() => { setSuccess(null); onClose(); }, 1500);
+      await runPerChannel(async (ch) => {
+        await onBulkEdit({ ...updates, id: ch.id });
+      });
     } catch (err: any) {
       setError(err.message || 'Bulk edit failed');
     } finally {
@@ -86,9 +121,9 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
     setLoading(true);
     setError(null);
     try {
-      await onBulkDelete();
-      setSuccess('Channels deleted successfully.');
-      setTimeout(() => { setSuccess(null); onClose(); }, 1500);
+      await runPerChannel(async (ch) => {
+        await onBulkDelete();
+      });
     } catch (err: any) {
       setError(err.message || 'Bulk delete failed');
     } finally {
@@ -100,9 +135,9 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
     setLoading(true);
     setError(null);
     try {
-      await onBulkActivate(active);
-      setSuccess(`Channels ${active ? 'activated' : 'deactivated'} successfully.`);
-      setTimeout(() => { setSuccess(null); onClose(); }, 1500);
+      await runPerChannel(async (ch) => {
+        await onBulkActivate(active);
+      });
     } catch (err: any) {
       setError(err.message || 'Bulk status update failed');
     } finally {
@@ -111,15 +146,15 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Bulk Operations for {selectedChannels.length} Channels</DialogTitle>
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
         <Box mb={2}>
-          <Button variant="outlined" onClick={() => setMode('edit')} sx={{ mr: 1 }}>Bulk Edit</Button>
-          <Button variant="outlined" color="error" onClick={() => setMode('delete')} sx={{ mr: 1 }}>Bulk Delete</Button>
-          <Button variant="outlined" color="success" onClick={() => setMode('activate')}>Bulk Activate/Deactivate</Button>
+          <Button variant="outlined" onClick={() => setMode('edit')} sx={{ mr: 1 }} disabled={loading}>Bulk Edit</Button>
+          <Button variant="outlined" color="error" onClick={() => setMode('delete')} sx={{ mr: 1 }} disabled={loading}>Bulk Delete</Button>
+          <Button variant="outlined" color="success" onClick={() => setMode('activate')} disabled={loading}>Bulk Activate/Deactivate</Button>
         </Box>
         {mode === 'edit' && (
           <Box>
@@ -145,9 +180,23 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
             <Button variant="contained" color="warning" onClick={() => handleBulkActivate(false)} disabled={loading}>Deactivate All</Button>
           </Box>
         )}
+        {operationResults.length > 0 && (
+          <Box mt={2}>
+            <Typography variant="subtitle2">Operation Results:</Typography>
+            {operationResults.map(res => (
+              <Box key={res.id} display="flex" alignItems="center" gap={1}>
+                <Typography variant="body2">Channel ID: {res.id}</Typography>
+                {res.status === 'pending' && <CircularProgress size={16} />}
+                {res.status === 'success' && <Typography color="success.main">Success</Typography>}
+                {res.status === 'error' && <Typography color="error.main">Error: {res.message}</Typography>}
+              </Box>
+            ))}
+            <Typography variant="body2" mt={1}>Success: {summary.success} | Failed: {summary.error}</Typography>
+          </Box>
+        )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} color="inherit">Cancel</Button>
+        <Button onClick={handleClose} color="inherit" disabled={loading}>Cancel</Button>
         {mode === 'edit' && <Button onClick={handleBulkEdit} color="primary" variant="contained" disabled={loading}>Update</Button>}
         {mode === 'delete' && <Button onClick={handleBulkDelete} color="error" variant="contained" disabled={loading}>Delete</Button>}
       </DialogActions>

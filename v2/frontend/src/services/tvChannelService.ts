@@ -1,14 +1,14 @@
 import { TVChannel, TVChannelCreate, TVChannelUpdate, BatchAssignmentRequest, BatchAssignmentResult } from '../types/tvChannelTypes';
 import apiClient from './apiClient';
 
-const BASE_URL = '/api/tv-channels';
+const BASE_URL = '/api/v1/tv-channels';
 
 export const tvChannelService = {
   /**
    * Get all TV channels
    */
   getAll: async (skip = 0, limit = 100): Promise<TVChannel[]> => {
-    const response = await apiClient.get(BASE_URL, { 
+    const response = await apiClient.get(BASE_URL, {
       params: { skip, limit }
     });
     return response.data;

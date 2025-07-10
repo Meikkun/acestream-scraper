@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Button, TextField, MenuItem, Select, InputLabel, FormControl, Grid } from '@mui/material';
+import { Box, Button, TextField, MenuItem, Select, InputLabel, FormControl, Grid, SelectChangeEvent } from '@mui/material';
 
 export interface AdvancedSearchFilters {
   search?: string;
@@ -35,9 +35,14 @@ const sortOptions = [
 const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ filters, onChange, categories = [], groups = [] }) => {
   const [local, setLocal] = useState<AdvancedSearchFilters>(filters);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+  const handleSelectChange = (e: SelectChangeEvent<string>) => {
     const { name, value } = e.target;
-    setLocal(prev => ({ ...prev, [name as string]: value }));
+    setLocal((prev) => ({ ...prev, [name as string]: value }));
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setLocal((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleApply = () => {
@@ -57,7 +62,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ filters, onChange, cate
             name="search"
             label="Search"
             value={local.search || ''}
-            onChange={handleChange}
+            onChange={handleInputChange}
             fullWidth
           />
         </Grid>
@@ -68,7 +73,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ filters, onChange, cate
               name="category"
               value={local.category || ''}
               label="Category"
-              onChange={handleChange}
+              onChange={handleSelectChange}
             >
               <MenuItem value="">Any</MenuItem>
               {categories.map(cat => (
@@ -84,7 +89,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ filters, onChange, cate
               name="group"
               value={local.group || ''}
               label="Group"
-              onChange={handleChange}
+              onChange={handleSelectChange}
             >
               <MenuItem value="">Any</MenuItem>
               {groups.map(grp => (
@@ -100,7 +105,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ filters, onChange, cate
               name="status"
               value={local.status || ''}
               label="Status"
-              onChange={handleChange}
+              onChange={handleSelectChange}
             >
               {statusOptions.map(opt => (
                 <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
@@ -115,7 +120,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ filters, onChange, cate
               name="sort"
               value={local.sort || ''}
               label="Sort By"
-              onChange={handleChange}
+              onChange={handleSelectChange}
             >
               {sortOptions.map(opt => (
                 <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>

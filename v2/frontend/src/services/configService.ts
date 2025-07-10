@@ -36,7 +36,7 @@ export interface Stats {
   };
 }
 
-const BASE_URL = '/config';
+const BASE_URL = '/v1/config';
 
 export const configService = {
   /**
@@ -119,7 +119,7 @@ export const configService = {
    * Check the overall system health
    */
   checkHealth: async (): Promise<HealthResponse> => {
-    const response = await apiClient.get<HealthResponse>('/health');
+    const response = await apiClient.get<HealthResponse>('/v1/health');
     return response.data;
   },
 
@@ -127,7 +127,7 @@ export const configService = {
    * Get system statistics
    */
   getStats: async (): Promise<Stats> => {
-    const response = await apiClient.get<Stats>('/stats');
+    const response = await apiClient.get<Stats>('/v1/stats');
     return response.data;
   }
 };

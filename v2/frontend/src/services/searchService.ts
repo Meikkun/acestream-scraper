@@ -43,28 +43,28 @@ export interface AddMultipleResponse {
   existing_channels: any[]; // Using 'any' for now, should be replaced with proper type
 }
 
-const BASE_URL = '/api/search';
+const BASE_URL = '/api/v1/search';
 
 export const searchService = {
   /**
    * Search for Acestream channels
    */
   search: async (
-    query: string = '', 
-    page: number = 1, 
-    pageSize: number = 10, 
+    query: string = '',
+    page: number = 1,
+    pageSize: number = 10,
     category?: string
   ): Promise<SearchResponse> => {
-    const params: Record<string, any> = { 
-      query, 
-      page, 
+    const params: Record<string, any> = {
+      query,
+      page,
       page_size: pageSize
     };
-    
+
     if (category) {
       params.category = category;
     }
-    
+
     const response = await apiClient.get(BASE_URL, { params });
     return response.data;
   },

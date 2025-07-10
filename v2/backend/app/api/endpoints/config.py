@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Body
 from sqlalchemy.orm import Session
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from pydantic import BaseModel
 import logging
 
 from app.config.database import get_db
 from app.repositories.settings_repository import SettingsRepository
 from app.services.config_service import ConfigService
+from app.services.dashboard_config_service import DashboardConfigService
 from app.schemas.config import (
     BaseUrlUpdate,
     AceEngineUrlUpdate,
@@ -129,6 +131,34 @@ def check_acestream_status(config_service: ConfigService = Depends(get_config_se
     """Check the status of the Acestream Engine"""
     status = config_service.check_acestream_status()
     return status
+
+@router.get("/dashboard")
+def get_dashboard_config(db: Session = Depends(get_db)):
+    service = DashboardConfigService(db)
+    config = service.get_config()
+    return {
+        "retention_days": config.retention_days,
+        "auto_refresh_interval": config.auto_refresh_interval
+    }
+
+class DashboardConfigUpdate(BaseModel):
+    retention_days: Optional[int] = None
+    auto_refresh_interval: Optional[int] = None
+
+@router.put("/dashboard")
+def update_dashboard_config(
+    update: DashboardConfigUpdate = Body(...),
+    db: Session = Depends(get_db)
+):
+    service = DashboardConfigService(db)
+    config = service.update_config(
+        retention_days=update.retention_days,
+        auto_refresh_interval=update.auto_refresh_interval
+    )
+    return {
+        "retention_days": config.retention_days,
+        "auto_refresh_interval": config.auto_refresh_interval
+    }
 
 @router.get("/{key}", response_model=SettingResponse)
 def get_config_key(key: str, config_service: ConfigService = Depends(get_config_service)):
