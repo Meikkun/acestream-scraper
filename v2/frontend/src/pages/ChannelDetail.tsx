@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Typography, 
-  Box, 
-  Paper, 
-  Grid, 
-  Button, 
-  TextField, 
+import {
+  Typography,
+  Box,
+  Paper,
+  Grid,
+  Button,
+  TextField,
   FormControlLabel,
   Switch,
   CircularProgress,
@@ -22,10 +22,10 @@ import {
   SelectChangeEvent,
   Chip
 } from '@mui/material';
-import { 
-  Save, 
-  Delete, 
-  ArrowBack, 
+import {
+  Save,
+  Delete,
+  ArrowBack,
   Refresh,
   Link as LinkIcon,
   CheckCircle,
@@ -42,7 +42,7 @@ import { formatDate } from '../utils/errorUtils';
 const ChannelDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  
+
   // States
   const [formData, setFormData] = useState({
     name: '',
@@ -57,15 +57,15 @@ const ChannelDetail: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
+
   // Queries and mutations
-  const { 
-    data: channel, 
-    isLoading, 
+  const {
+    data: channel,
+    isLoading,
     error: fetchError,
     refetch
   } = useChannel(id || '');
-  
+
   const updateChannel = useUpdateChannel(id || '');
   const deleteChannel = useDeleteChannel();
   const checkStatus = useCheckChannelStatus(id || '');
@@ -119,7 +119,7 @@ const ChannelDetail: React.FC = () => {
         epg_update_protected: formData.epg_update_protected,
         tv_channel_id: formData.tv_channel_id ? parseInt(formData.tv_channel_id) : undefined
       });
-      
+
       setSuccess('Channel updated successfully');
       setIsEditing(false);
       setTimeout(() => setSuccess(null), 3000);
@@ -180,8 +180,8 @@ const ChannelDetail: React.FC = () => {
       {/* Header with actions */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Button 
-            startIcon={<ArrowBack />} 
+          <Button
+            startIcon={<ArrowBack />}
             onClick={() => navigate('/channels')}
             sx={{ mr: 2 }}
           >
@@ -203,18 +203,18 @@ const ChannelDetail: React.FC = () => {
           </Button>
           {isEditing ? (
             <>
-              <Button 
-                variant="contained" 
-                color="primary" 
-                startIcon={<Save />} 
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<Save />}
                 onClick={handleSave}
                 disabled={updateChannel.isLoading}
                 sx={{ mr: 1 }}
               >
                 Save
               </Button>
-              <Button 
-                variant="outlined" 
+              <Button
+                variant="outlined"
                 onClick={() => {
                   setIsEditing(false);
                   // Reset form data to original channel data
@@ -237,18 +237,18 @@ const ChannelDetail: React.FC = () => {
               </Button>
             </>
           ) : (
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               onClick={() => setIsEditing(true)}
               sx={{ mr: 1 }}
             >
               Edit
             </Button>
           )}
-          <Button 
-            variant="outlined" 
-            color="error" 
-            startIcon={<Delete />} 
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<Delete />}
             onClick={handleDelete}
             disabled={deleteChannel.isLoading}
           >
@@ -263,7 +263,7 @@ const ChannelDetail: React.FC = () => {
           {error}
         </Alert>
       )}
-      
+
       {success && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
           {success}
@@ -279,8 +279,8 @@ const ChannelDetail: React.FC = () => {
                 Status
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                <Chip 
-                  label={channel.status} 
+                <Chip
+                  label={channel.status}
                   color={channel.status === 'active' ? 'success' : 'default'}
                   size="small"
                   sx={{ mr: 2 }}
