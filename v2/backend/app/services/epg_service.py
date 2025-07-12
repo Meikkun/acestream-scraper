@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 class EPGService:
+    def find_channel_by_xml_id_across_sources(self, channel_xml_id: str) -> Optional[EPGChannel]:
+        """Find an EPG channel by channel_xml_id across all sources."""
+        return self.db.query(EPGChannel).filter(EPGChannel.channel_xml_id == channel_xml_id).first()
     """Service for managing EPG operations"""
 
     def __init__(self, db: Session):

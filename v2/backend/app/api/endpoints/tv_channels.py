@@ -6,23 +6,34 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 
 from app.config.database import get_db
-from app.services.channel_service import ChannelService
+from app.services.tvchannel_service import TVChannelService
+from app.services.acestreamchannel_service import AcestreamChannelService
 from app.schemas.channel import TVChannelResponse, TVChannelCreate, TVChannelUpdate, ChannelResponse
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[TVChannelResponse])
+from fastapi import Query
+
+@router.get("/", response_model=Dict[str, Any])
 async def get_tv_channels(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, alias="skip"),
+    limit: int = Query(100, alias="limit"),
+    page: int = Query(None, alias="page"),
+    page_size: int = Query(None, alias="page_size"),
     db: Session = Depends(get_db)
 ):
     """
-    Get all TV channels.
+    Get all TV channels with pagination and total count.
     """
-    service = ChannelService(db)
-    return service.get_all_tv_channels(skip=skip, limit=limit)
+    # Convert page/page_size to skip/limit if provided
+    if page is not None and page_size is not None:
+        skip = (page - 1) * page_size
+        limit = page_size
+    service = TVChannelService(db)
+    items, total = service.get_tv_channels_with_total(skip=skip, limit=limit)
+    items_serialized = [TVChannelResponse.model_validate(item) for item in items]
+    return {"items": items_serialized, "total": total}
 
 
 @router.get("/{tv_channel_id}", response_model=TVChannelResponse)
@@ -30,7 +41,7 @@ async def get_tv_channel(tv_channel_id: int, db: Session = Depends(get_db)):
     """
     Get a specific TV channel by ID.
     """
-    service = ChannelService(db)
+    service = TVChannelService(db)
     tv_channel = service.get_tv_channel_by_id(tv_channel_id)
     if not tv_channel:
         raise HTTPException(status_code=404, detail="TV Channel not found")
@@ -48,7 +59,7 @@ async def create_tv_channel(tv_channel: TVChannelCreate, db: Session = Depends(g
             detail="Name cannot be empty"
         )
 
-    service = ChannelService(db)
+    service = TVChannelService(db)
     existing_channel = service.get_tv_channel_by_name(tv_channel.name)
     if existing_channel:
         raise HTTPException(
@@ -81,7 +92,7 @@ async def update_tv_channel(
     """
     Update an existing TV channel.
     """
-    service = ChannelService(db)
+    service = TVChannelService(db)
     existing_channel = service.get_tv_channel_by_id(tv_channel_id)
     if not existing_channel:
         raise HTTPException(status_code=404, detail="TV Channel not found")
@@ -98,7 +109,7 @@ async def delete_tv_channel(tv_channel_id: int, db: Session = Depends(get_db)):
     """
     Delete a TV channel.
     """
-    service = ChannelService(db)
+    service = TVChannelService(db)
     existing_channel = service.get_tv_channel_by_id(tv_channel_id)
     if not existing_channel:
         raise HTTPException(status_code=404, detail="TV Channel not found")
@@ -112,7 +123,7 @@ async def get_tv_channel_acestreams(tv_channel_id: int, db: Session = Depends(ge
     """
     Get all acestream channels associated with a TV channel.
     """
-    service = ChannelService(db)
+    service = TVChannelService(db)
     tv_channel = service.get_tv_channel_by_id(tv_channel_id)
     if not tv_channel:
         raise HTTPException(status_code=404, detail="TV Channel not found")
@@ -133,7 +144,7 @@ async def associate_acestream(
         raise HTTPException(status_code=422, detail="acestream_channel_id is required")
 
     acestream_id = association["acestream_channel_id"]
-    service = ChannelService(db)
+    service = TVChannelService(db)
     success = service.associate_acestream(
         tv_channel_id=tv_channel_id,
         acestream_id=acestream_id
@@ -157,7 +168,7 @@ async def remove_acestream_association(
     """
     Remove association between an acestream channel and a TV channel.
     """
-    service = ChannelService(db)
+    service = TVChannelService(db)
     success = service.remove_acestream_association(
         tv_channel_id=tv_channel_id,
         acestream_id=acestream_id
@@ -193,7 +204,7 @@ async def batch_assign_acestreams(
     if "assignments" not in assignment_data:
         raise HTTPException(status_code=422, detail="assignments field is required")
 
-    service = ChannelService(db)
+    service = TVChannelService(db)
     results = service.batch_associate_acestreams(assignment_data["assignments"])
     return results
 
@@ -206,21 +217,22 @@ async def associate_by_epg(db: Session = Depends(get_db)):
     This endpoint attempts to match acestream channels with TV channels
     using EPG IDs and channel names.
     """
-    service = ChannelService(db)
+    tv_service = TVChannelService(db)
+    ace_service = AcestreamChannelService(db)
 
     # Get all TV channels with EPG IDs
-    tv_channels = service.get_all_tv_channels(skip=0, limit=1000)
+    tv_channels = tv_service.get_all_tv_channels(skip=0, limit=1000)
     tv_channels_with_epg = [tc for tc in tv_channels if tc.epg_id]
 
     # Get all acestream channels with tvg_id
-    acestream_channels = service.get_all_channels(skip=0, limit=10000)
+    acestream_channels = ace_service.get_all_channels(skip=0, limit=10000)
     acestream_channels_with_tvg = [ac for ac in acestream_channels if getattr(ac, 'tvg_id', None)]
 
     matched_count = 0
     for tv_channel in tv_channels_with_epg:
         for acestream in acestream_channels_with_tvg:
             if tv_channel.epg_id == acestream.tvg_id:
-                success = service.associate_acestream(tv_channel.id, acestream.id)
+                success = tv_service.associate_acestream(tv_channel.id, acestream.id)
                 if success:
                     matched_count += 1
                     break
@@ -252,7 +264,7 @@ async def bulk_update_epg(update_data: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422, detail="updates field is required")
 
     updates = update_data["updates"]
-    service = ChannelService(db)
+    service = TVChannelService(db)
 
     results = {
         "success_count": 0,

@@ -43,7 +43,7 @@ export interface AddMultipleResponse {
   existing_channels: any[]; // Using 'any' for now, should be replaced with proper type
 }
 
-const BASE_URL = '/api/v1/search';
+const BASE_URL = '/v1/search';
 
 export const searchService = {
   /**

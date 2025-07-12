@@ -5,9 +5,13 @@ from sqlalchemy.orm import Session
 from typing import List, Tuple, Dict, Any, Optional
 import logging
 
-from app.models.models import ScrapedURL
+from app.models.models import ScrapedURL, AcestreamChannel
 from app.schemas.scraper import ChannelResult, URLResponse, URLCreate, URLUpdate
 from app.scrapers import create_scraper_for_url
+from app.services.channel_service import ChannelService
+from app.services.m3u_service import M3UService
+from app.services.epg_service import EPGService
+from app.services.tvchannel_service import TVChannelService
 
 logger = logging.getLogger(__name__)
 
@@ -33,19 +37,60 @@ class ScraperService:
 
         try:
             scraper = create_scraper_for_url(url, url_type)
+            # Inject db, epg_service, tv_channel_service for robust TV channel creation/association
+            epg_service = EPGService(self.db)
+            tv_channel_service = TVChannelService(self.db)
+            scraper.db = self.db
+            scraper.epg_service = epg_service
+            scraper.tv_channel_service = tv_channel_service
             raw_channels, status = await scraper.scrape()
 
-            # Convert raw channels to ChannelResult objects
-            channels = [
-                ChannelResult(
+            # Auto-create TV channels from EPG and assign tv_channel_id
+            m3u_service = M3UService()
+            raw_channels = m3u_service.auto_create_tv_channels_from_epg(self.db, raw_channels, epg_service, tv_channel_service)
+
+            # Remove old channels for this source_url
+            existing_channels = {ch.id for ch in self.db.query(self.db.query(AcestreamChannel).filter_by(source_url=url).subquery()).all()}
+            new_channel_ids = {channel_id for channel_id, _, _ in raw_channels}
+            channels_to_remove = existing_channels - new_channel_ids
+            if channels_to_remove:
+                for ch_id in channels_to_remove:
+                    ch = self.db.query(AcestreamChannel).filter(AcestreamChannel.id == ch_id).first()
+                    if ch:
+                        self.db.delete(ch)
+                self.db.commit()
+
+            # Persist channels to DB using ChannelService
+            channel_service = ChannelService(self.db)
+            persisted_channels = []
+            for channel_id, name, metadata in raw_channels:
+                persisted = channel_service.create_channel(
                     channel_id=channel_id,
                     name=name,
-                    metadata=metadata
+                    source_url=url,
+                    group=metadata.get('group_title') or metadata.get('group') or None,
+                    logo=metadata.get('tvg_logo') or metadata.get('logo') or None,
+                    tvg_id=metadata.get('tvg_id') or None,
+                    tvg_name=metadata.get('tvg_name') or None,
+                    is_online=True
                 )
-                for channel_id, name, metadata in raw_channels
-            ]
+                persisted_channels.append(persisted)
+            self.db.commit()
 
-            return channels, status
+            return [
+                ChannelResult(
+                    channel_id=ch.id,
+                    name=ch.name,
+                    metadata={
+                        'group': ch.group,
+                        'logo': ch.logo,
+                        'tvg_id': ch.tvg_id,
+                        'tvg_name': ch.tvg_name,
+                        'source_url': ch.source_url,
+                        'tv_channel_id': getattr(ch, 'tv_channel_id', None)
+                    }
+                ) for ch in persisted_channels
+            ], status
 
         except Exception as e:
             logger.error(f"Error scraping URL {url}: {str(e)}")

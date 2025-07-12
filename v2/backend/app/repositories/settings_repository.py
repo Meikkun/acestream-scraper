@@ -37,7 +37,6 @@ class SettingsRepository:
             # Use class default if available
             return self._get_class_default(key, default)
         except Exception as e:
-            logger.error(f"Error getting setting {key}: {e}")
             return self._get_class_default(key, default)
 
     def _get_class_default(self, key: str, custom_default: Any = None) -> Any:
@@ -82,7 +81,6 @@ class SettingsRepository:
             settings = self.db.query(Setting).all()
             return {setting.key: setting.value for setting in settings}
         except Exception as e:
-            logger.error(f"Error getting all settings: {e}")
             return {}
 
     def setup_defaults(self) -> bool:

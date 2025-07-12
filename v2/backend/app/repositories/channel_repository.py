@@ -9,6 +9,24 @@ from app.models.models import AcestreamChannel, TVChannel
 
 
 class ChannelRepository:
+    def get_tv_channels_with_total(self, skip: int = 0, limit: int = 100) -> (list, int):
+        query = self.db.query(TVChannel)
+        total = query.count()
+        items = query.offset(skip).limit(limit).all()
+        return items, total
+    def assign_acestreams_to_tv_channel(self, acestream_ids: list, tv_channel_id: int) -> int:
+        """Assign multiple acestream channels to a TV channel by setting their tv_channel_id."""
+        updated = 0
+        for ace_id in acestream_ids:
+            channel = self.get_channel_by_id(ace_id)
+            if channel and channel.tv_channel_id != tv_channel_id:
+                channel.tv_channel_id = tv_channel_id
+                updated += 1
+        self.db.commit()
+        return updated
+    def get_tv_channel_by_epg_id(self, epg_id: str) -> Optional[TVChannel]:
+        """Get a TV channel by EPG ID"""
+        return self.db.query(TVChannel).filter(TVChannel.epg_id == epg_id).first()
     """Repository for channel operations"""
 
     def __init__(self, db: Session):
@@ -96,7 +114,7 @@ class ChannelRepository:
                                tvg_id: Optional[str] = None,
                                tvg_name: Optional[str] = None,
                                is_online: Optional[bool] = None) -> AcestreamChannel:
-        """Create a new channel or update existing one"""
+        """Create a new channel or update existing one. Always update tvg_id and tvg_name if present (even if empty string)."""
         channel = self.get_channel_by_id(channel_id)
 
         if not channel:
@@ -118,15 +136,16 @@ class ChannelRepository:
             channel.name = name
             channel.last_seen = datetime.utcnow()
             channel.is_active = True
-            if source_url:
+            if source_url is not None:
                 channel.source_url = source_url
-            if group:
+            if group is not None:
                 channel.group = group
-            if logo:
+            if logo is not None:
                 channel.logo = logo
-            if tvg_id:
+            # Always update tvg_id and tvg_name, even if empty string (to allow clearing)
+            if tvg_id is not None:
                 channel.tvg_id = tvg_id
-            if tvg_name:
+            if tvg_name is not None:
                 channel.tvg_name = tvg_name
             if is_online is not None:
                 channel.is_online = is_online
@@ -159,6 +178,39 @@ class ChannelRepository:
         self.db.delete(channel)
         self.db.commit()
         return True
+
+    def bulk_delete_channels(self, channel_ids: List[str]) -> bool:
+        """
+        Delete multiple channels by IDs
+        """
+        deleted_any = False
+        for channel_id in channel_ids:
+            deleted = self.delete_channel(channel_id)
+            if deleted:
+                deleted_any = True
+        return deleted_any
+
+    def bulk_update_channels(self, channel_ids: List[str], fields: Dict[str, Any]) -> List[AcestreamChannel]:
+        """
+        Update multiple channels by IDs and fields
+        """
+        updated = []
+        for channel_id in channel_ids:
+            channel = self.update_channel(channel_id, fields)
+            if channel:
+                updated.append(channel)
+        return updated
+
+    def bulk_activate_channels(self, channel_ids: List[str], active: bool) -> List[AcestreamChannel]:
+        """
+        Activate/deactivate multiple channels by IDs
+        """
+        updated = []
+        for channel_id in channel_ids:
+            channel = self.update_channel(channel_id, {"is_active": active})
+            if channel:
+                updated.append(channel)
+        return updated
 
     def update_channel_status(self, channel_id: str, is_online: bool, error: str = None) -> AcestreamChannel:
         """Update the online status of a channel"""
@@ -284,3 +336,65 @@ class ChannelRepository:
         acestream_channel.tv_channel_id = None
         self.db.commit()
         return True
+
+    def get_advanced_filtered_channels(self,
+                                      skip: int = 0,
+                                      limit: int = 100,
+                                      active_only: bool = True,
+                                      search: Optional[str] = None,
+                                      group: Optional[str] = None,
+                                      country: Optional[str] = None,
+                                      language: Optional[str] = None,
+                                      is_active: Optional[bool] = None,
+                                      is_online: Optional[bool] = None) -> List[AcestreamChannel]:
+        """
+        Get channels with advanced/custom field filtering
+        """
+        query = self.db.query(AcestreamChannel)
+        if active_only:
+            query = query.filter(AcestreamChannel.is_active == True)
+        if search:
+            query = query.filter(AcestreamChannel.name.ilike(f"%{search}%"))
+        if group:
+            query = query.filter(AcestreamChannel.group == group)
+        if country:
+            query = query.filter(AcestreamChannel.country == country)
+        if language:
+            query = query.filter(AcestreamChannel.language == language)
+        if is_active is not None:
+            query = query.filter(AcestreamChannel.is_active == is_active)
+        if is_online is not None:
+            query = query.filter(AcestreamChannel.is_online == is_online)
+        return query.offset(skip).limit(limit).all()
+
+    def get_advanced_filtered_channels_with_total(self,
+                                      skip: int = 0,
+                                      limit: int = 100,
+                                      active_only: bool = True,
+                                      search: Optional[str] = None,
+                                      group: Optional[str] = None,
+                                      country: Optional[str] = None,
+                                      language: Optional[str] = None,
+                                      is_active: Optional[bool] = None,
+                                      is_online: Optional[bool] = None):
+        """
+        Get paginated channels and total count for current filter
+        """
+        query = self.db.query(AcestreamChannel)
+        if active_only:
+            query = query.filter(AcestreamChannel.is_active == True)
+        if search:
+            query = query.filter(AcestreamChannel.name.ilike(f"%{search}%"))
+        if group:
+            query = query.filter(AcestreamChannel.group == group)
+        if country:
+            query = query.filter(AcestreamChannel.country == country)
+        if language:
+            query = query.filter(AcestreamChannel.language == language)
+        if is_active is not None:
+            query = query.filter(AcestreamChannel.is_active == is_active)
+        if is_online is not None:
+            query = query.filter(AcestreamChannel.is_online == is_online)
+        total = query.count()
+        items = query.offset(skip).limit(limit).all()
+        return items, total

@@ -24,18 +24,22 @@ export interface ChannelUpdate {
 }
 
 export interface AcestreamChannel extends ChannelBase {
-  id: number;
-  source_url?: string;
+  id: string; // Acestream hash ID
   group?: string;
   logo?: string;
   tvg_id?: string;
   tvg_name?: string;
-  last_seen: string; // ISO date string
+  source_url?: string;
+  original_url?: string;
+  last_seen?: string;
   is_active: boolean;
   is_online?: boolean;
-  last_checked?: string; // ISO date string
-  tv_channel_id?: number;
+  last_checked?: string;
+  check_error?: string;
   epg_update_protected?: boolean;
+  tv_channel_id?: number;
+  added_at?: string;
+  status?: string;
 }
 
 export interface ChannelStatusCheck {

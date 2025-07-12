@@ -14,27 +14,30 @@ class TestTVChannelEndpoints:
         """Test getting TV channels when none exist."""
         response = client.get("/api/v1/tv-channels/")
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == []
+        data = response.json()
+        assert data == {"items": [], "total": 0}
 
     def test_get_tv_channels_with_data(self, client, seed_tv_channels):
         """Test getting TV channels with data."""
         response = client.get("/api/v1/tv-channels/")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert len(data) == 3
+        assert data["total"] == 3
+        assert len(data["items"]) == 3
         # Check that the names contain the expected prefixes (with timestamps)
-        assert data[0]["name"].startswith("Test TV Channel 1")
-        assert data[1]["name"].startswith("Test TV Channel 2")
-        assert data[2]["name"].startswith("Test TV Channel 3")
+        assert data["items"][0]["name"].startswith("Test TV Channel 1")
+        assert data["items"][1]["name"].startswith("Test TV Channel 2")
+        assert data["items"][2]["name"].startswith("Test TV Channel 3")
 
     def test_get_tv_channels_with_pagination(self, client, seed_tv_channels):
         """Test getting TV channels with pagination."""
         response = client.get("/api/v1/tv-channels/?skip=1&limit=1")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert len(data) == 1
+        assert data["total"] == 3
+        assert len(data["items"]) == 1
         # Check that the name contains the expected prefix (with timestamp)
-        assert data[0]["name"].startswith("Test TV Channel 2")
+        assert data["items"][0]["name"].startswith("Test TV Channel 2")
 
     def test_get_tv_channel_by_id(self, client, seed_tv_channels):
         """Test getting a specific TV channel by ID."""

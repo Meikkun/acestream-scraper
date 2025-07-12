@@ -193,6 +193,7 @@ class ActivityLog(Base):
     message = Column(String(255), nullable=False)
     details = Column(Text, nullable=True)  # Use Text for compatibility; change to JSON if supported
     user = Column(String(64), nullable=True)  # user-initiated actions, if any
+    channel_id = Column(String(255), ForeignKey("acestream_channels.id"), nullable=True, index=True)  # New field for channel association
 
 
 class DashboardConfig(Base):

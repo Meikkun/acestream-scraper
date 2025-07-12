@@ -1,20 +1,25 @@
 """
 Service for channel operations
 """
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime
 
 from sqlalchemy.orm import Session
 from app.repositories.channel_repository import ChannelRepository
 from app.models.models import AcestreamChannel, TVChannel
+from app.services.acestreamchannel_service import AcestreamChannelService
+from app.services.tvchannel_service import TVChannelService
 
 
 class ChannelService:
     """Service for channel-related operations"""
 
     def __init__(self, db: Session):
+        self.acestream_service = AcestreamChannelService(db)
+        self.tv_service = TVChannelService(db)
         self.repository = ChannelRepository(db)
 
+    # Delegate AcestreamChannel methods
     def get_all_channels(self,
                         skip: int = 0,
                         limit: int = 100,
@@ -32,7 +37,7 @@ class ChannelService:
         Returns:
             List of channels
         """
-        return self.repository.get_channels(
+        return self.acestream_service.get_all_channels(
             skip=skip,
             limit=limit,
             active_only=active_only,
@@ -58,7 +63,7 @@ class ChannelService:
         Returns:
             List of filtered channels
         """
-        return self.repository.get_filtered_channels(
+        return self.acestream_service.get_filtered_channels(
             search=search,
             group=group,
             only_online=only_online,
@@ -73,7 +78,7 @@ class ChannelService:
         Returns:
             List of group names
         """
-        return self.repository.get_unique_groups()
+        return self.acestream_service.get_channel_groups()
 
     def get_channel_by_id(self, channel_id: str) -> Optional[AcestreamChannel]:
         """
@@ -85,7 +90,7 @@ class ChannelService:
         Returns:
             Channel object or None
         """
-        return self.repository.get_channel_by_id(channel_id)
+        return self.acestream_service.get_channel_by_id(channel_id)
 
     def create_channel(self,
                       channel_id: str,
@@ -112,7 +117,7 @@ class ChannelService:
         Returns:
             The created channel
         """
-        return self.repository.create_or_update_channel(
+        return self.acestream_service.create_channel(
             channel_id=channel_id,
             name=name,
             source_url=source_url,
@@ -134,7 +139,7 @@ class ChannelService:
         Returns:
             Updated channel or None if not found
         """
-        return self.repository.update_channel(channel_id=channel_id, updates=updates)
+        return self.acestream_service.update_channel(channel_id=channel_id, updates=updates)
 
     def delete_channel(self, channel_id: str) -> bool:
         """
@@ -146,7 +151,7 @@ class ChannelService:
         Returns:
             True if deleted, False if not found
         """
-        return self.repository.delete_channel(channel_id)
+        return self.acestream_service.delete_channel(channel_id)
 
     def check_channel_status(self, channel_id: str) -> Optional[AcestreamChannel]:
         """
@@ -160,7 +165,7 @@ class ChannelService:
         """
         # In a real implementation, this would check the acestream status
         # For now, we'll just mark it as online
-        return self.repository.update_channel_status(channel_id=channel_id, is_online=True)
+        return self.acestream_service.check_channel_status(channel_id=channel_id, is_online=True)
 
     def check_all_channels_status(self) -> int:
         """
@@ -169,7 +174,7 @@ class ChannelService:
         Returns:
             Number of channels checked
         """
-        return self.repository.check_all_channels_status()
+        return self.acestream_service.check_all_channels_status()
 
     # TV Channel methods
 
@@ -184,7 +189,7 @@ class ChannelService:
         Returns:
             List of TV channels
         """
-        return self.repository.get_tv_channels(skip=skip, limit=limit)
+        return self.tv_service.get_all_tv_channels(skip=skip, limit=limit)
 
     def get_tv_channel_by_id(self, tv_channel_id: int) -> Optional[TVChannel]:
         """
@@ -196,7 +201,7 @@ class ChannelService:
         Returns:
             TV channel or None
         """
-        return self.repository.get_tv_channel_by_id(tv_channel_id)
+        return self.tv_service.get_tv_channel_by_id(tv_channel_id)
 
     def get_tv_channel_by_name(self, name: str) -> Optional[TVChannel]:
         """
@@ -208,7 +213,7 @@ class ChannelService:
         Returns:
             TV channel or None
         """
-        return self.repository.get_tv_channel_by_name(name)
+        return self.tv_service.get_tv_channel_by_name(name)
 
     def create_tv_channel(self,
                          name: str,
@@ -243,7 +248,7 @@ class ChannelService:
         Returns:
             The created TV channel
         """
-        return self.repository.create_tv_channel(
+        return self.tv_service.create_tv_channel(
             name=name,
             logo_url=logo_url,
             description=description,
@@ -269,7 +274,7 @@ class ChannelService:
         Returns:
             Updated TV channel or None if not found
         """
-        return self.repository.update_tv_channel(tv_channel_id=tv_channel_id, updates=updates)
+        return self.tv_service.update_tv_channel(tv_channel_id=tv_channel_id, updates=updates)
 
     def delete_tv_channel(self, tv_channel_id: int) -> bool:
         """
@@ -281,7 +286,7 @@ class ChannelService:
         Returns:
             True if deleted, False if not found
         """
-        return self.repository.delete_tv_channel(tv_channel_id)
+        return self.tv_service.delete_tv_channel(tv_channel_id)
 
     def associate_acestream(self, tv_channel_id: int, acestream_id: str) -> bool:
         """
@@ -294,10 +299,7 @@ class ChannelService:
         Returns:
             True if associated, False if either not found
         """
-        return self.repository.associate_acestream_to_tv_channel(
-            tv_channel_id=tv_channel_id,
-            acestream_channel_id=acestream_id
-        )
+        return self.tv_service.associate_acestream(tv_channel_id=tv_channel_id, acestream_id=acestream_id)
 
     def remove_acestream_association(self, tv_channel_id: int, acestream_id: str) -> bool:
         """
@@ -310,10 +312,7 @@ class ChannelService:
         Returns:
             True if removed, False if not found
         """
-        return self.repository.remove_acestream_from_tv_channel(
-            tv_channel_id=tv_channel_id,
-            acestream_channel_id=acestream_id
-        )
+        return self.tv_service.remove_acestream_association(tv_channel_id=tv_channel_id, acestream_id=acestream_id)
 
     def batch_associate_acestreams(self, assignments: List[Dict]) -> Dict[str, Any]:
         """
@@ -325,31 +324,10 @@ class ChannelService:
         Returns:
             Dictionary with results
         """
-        results = {
-            "success_count": 0,
-            "failure_count": 0,
-            "details": {}
-        }
+        return self.tv_service.batch_associate_acestreams(assignments=assignments)
 
-        for assignment in assignments:
-            tv_channel_id = assignment.get("tv_channel_id")
-            acestream_id = assignment.get("acestream_channel_id")
-
-            if tv_channel_id is None or acestream_id is None:
-                results["failure_count"] += 1
-                continue
-
-            tv_channel_id_str = str(tv_channel_id)
-            if tv_channel_id_str not in results["details"]:
-                results["details"][tv_channel_id_str] = {"success": [], "failure": []}
-
-            success = self.associate_acestream(tv_channel_id, acestream_id)
-
-            if success:
-                results["success_count"] += 1
-                results["details"][tv_channel_id_str]["success"].append(acestream_id)
-            else:
-                results["failure_count"] += 1
-                results["details"][tv_channel_id_str]["failure"].append(acestream_id)
-
-        return results
+    def get_advanced_filtered_channels_with_total(self, *args, **kwargs):
+        """
+        Get channels with advanced/custom field filtering and total count
+        """
+        return self.acestream_service.get_advanced_filtered_channels_with_total(*args, **kwargs)

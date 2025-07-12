@@ -14,41 +14,46 @@ class TestChannelEndpoints:
         """Test getting channels when none exist."""
         response = client.get("/api/v1/channels/")
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == []
+        data = response.json()
+        assert data == {"items": [], "total": 0}
 
     def test_get_channels_with_data(self, client, seed_channels):
         """Test getting channels with data."""
         response = client.get("/api/v1/channels/")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert len(data) == 3
-        assert data[0]["name"] == "Alpha Channel"
-        assert data[1]["name"] == "Beta Channel"
-        assert data[2]["name"] == "Gamma Channel"
+        assert data["total"] == 3
+        assert len(data["items"]) == 3
+        assert data["items"][0]["name"] == "Alpha Channel"
+        assert data["items"][1]["name"] == "Beta Channel"
+        assert data["items"][2]["name"] == "Gamma Channel"
 
     def test_get_channels_with_search(self, client, seed_channels):
         """Test getting channels with search filter."""
         response = client.get("/api/v1/channels/?search=Alpha")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert len(data) == 1
-        assert data[0]["name"] == "Alpha Channel"
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["name"] == "Alpha Channel"
 
     def test_get_channels_with_pagination(self, client, seed_channels):
         """Test getting channels with pagination."""
         response = client.get("/api/v1/channels/?skip=1&limit=1")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert len(data) == 1
-        assert data[0]["name"] == "Beta Channel"
+        assert data["total"] == 3
+        assert len(data["items"]) == 1
+        assert data["items"][0]["name"] == "Beta Channel"
 
     def test_get_channels_with_group_filter(self, client, seed_channels):
         """Test getting channels with group filter."""
         response = client.get("/api/v1/channels/?group=Group 1")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert len(data) == 1
-        assert data[0]["group"] == "Group 1"
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["group"] == "Group 1"
 
     def test_get_channel_by_id(self, client, seed_channels):
         """Test getting a specific channel by ID."""
@@ -222,5 +227,6 @@ class TestChannelGroupEndpoints:
         response = client.get("/api/v1/channels/?group=Group 1")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert len(data) == 1
-        assert data[0]["group"] == "Group 1"
+        assert data["total"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["group"] == "Group 1"

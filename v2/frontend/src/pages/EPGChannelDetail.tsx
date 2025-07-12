@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Typography, 
-  Box, 
-  Paper, 
-  Button, 
+import {
+  Typography,
+  Box,
+  Paper,
+  Button,
   Table,
   TableBody,
   TableCell,
@@ -41,9 +41,9 @@ import {
   Search as SearchIcon
 } from '@mui/icons-material';
 import { format, parseISO } from 'date-fns';
-import { 
-  useEPGChannel, 
-  useEPGPrograms, 
+import {
+  useEPGChannel,
+  useEPGPrograms,
   useEPGStringMappings,
   useAddEPGStringMapping,
   useDeleteEPGStringMapping,
@@ -89,7 +89,7 @@ const EPGChannelDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const channelId = parseInt(id || '0', 10);
-  
+
   // State management
   const [tabValue, setTabValue] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -98,54 +98,67 @@ const EPGChannelDetail: React.FC = () => {
     start: new Date().toISOString().split('T')[0],
     end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   });
-  
+
   // Dialog states
   const [openMappingDialog, setOpenMappingDialog] = useState(false);
   const [openStringMappingDialog, setOpenStringMappingDialog] = useState(false);
+  const [openCreateTVDialog, setOpenCreateTVDialog] = useState(false);
   const [selectedTVChannel, setSelectedTVChannel] = useState<number | null>(null);
   const [stringMappingFormData, setStringMappingFormData] = useState<StringMappingFormData>({
     search_pattern: '',
     is_exclusion: false
   });
-  
+  const [createTVForm, setCreateTVForm] = useState({
+    name: '',
+    logo_url: '',
+    description: '',
+    category: '',
+    country: '',
+    language: '',
+    epg_id: '',
+    is_active: true,
+    is_favorite: false
+  });
+  const [creatingTV, setCreatingTV] = useState(false);
+
   // Snackbar state
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'success' as 'success' | 'error' | 'warning' | 'info'
   });
-  
+
   // API hooks
   const { data: channel, isLoading: isLoadingChannel } = useEPGChannel(channelId);
   const { data: programs, isLoading: isLoadingPrograms } = useEPGPrograms(
-    channelId, 
-    dateRange.start, 
+    channelId,
+    dateRange.start,
     dateRange.end
   );
   const { data: stringMappings, isLoading: isLoadingMappings } = useEPGStringMappings(channelId);
   const { data: tvChannels } = useAllTVChannels();
-  
+
   // Mutations
   const { mutateAsync: addStringMapping } = useAddEPGStringMapping(channelId);
   const { mutateAsync: deleteStringMapping } = useDeleteEPGStringMapping(channelId);
   const { mutateAsync: mapChannel } = useMapEPGChannel();
   const { mutateAsync: unmapChannel } = useUnmapEPGChannel();
-  
+
   // Pagination
   const totalPages = Math.ceil((programs?.length || 0) / programsPerPage);
   const paginatedPrograms = programs?.slice(
     (currentPage - 1) * programsPerPage,
     currentPage * programsPerPage
   );
-  
+
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
-  
+
   const handlePageChange = (event: React.ChangeEvent<unknown>, page: number) => {
     setCurrentPage(page);
   };
-  
+
   const handleDateRangeChange = (field: 'start' | 'end', value: string) => {
     setDateRange(prev => ({
       ...prev,
@@ -153,7 +166,7 @@ const EPGChannelDetail: React.FC = () => {
     }));
     setCurrentPage(1); // Reset to first page when date changes
   };
-  
+
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
     setSnackbar({
       open: true,
@@ -161,11 +174,11 @@ const EPGChannelDetail: React.FC = () => {
       severity
     });
   };
-  
+
   const closeSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
-  
+
   // String mapping handlers
   const handleAddStringMapping = async () => {
     try {
@@ -180,7 +193,7 @@ const EPGChannelDetail: React.FC = () => {
       showSnackbar(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
   };
-  
+
   const handleDeleteStringMapping = async (mappingId: number) => {
     if (window.confirm('Are you sure you want to delete this string mapping?')) {
       try {
@@ -191,11 +204,11 @@ const EPGChannelDetail: React.FC = () => {
       }
     }
   };
-  
+
   // TV channel mapping handlers
   const handleMapToTVChannel = async () => {
     if (!selectedTVChannel) return;
-    
+
     try {
       await mapChannel({
         epg_channel_id: channelId,
@@ -208,7 +221,7 @@ const EPGChannelDetail: React.FC = () => {
       showSnackbar(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
   };
-  
+
   const formatDateTime = (dateTimeString: string) => {
     try {
       return format(parseISO(dateTimeString), 'PPP p');
@@ -216,7 +229,7 @@ const EPGChannelDetail: React.FC = () => {
       return dateTimeString;
     }
   };
-  
+
   const formatDuration = (startTime: string, endTime: string) => {
     try {
       const start = parseISO(startTime);
@@ -224,7 +237,7 @@ const EPGChannelDetail: React.FC = () => {
       const durationMs = end.getTime() - start.getTime();
       const hours = Math.floor(durationMs / (1000 * 60 * 60));
       const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-      
+
       if (hours > 0) {
         return `${hours}h ${minutes}m`;
       } else {
@@ -266,7 +279,7 @@ const EPGChannelDetail: React.FC = () => {
           EPG Channel: {channel.name}
         </Typography>
       </Box>
-      
+
       {/* Channel Information Card */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
@@ -307,12 +320,33 @@ const EPGChannelDetail: React.FC = () => {
                 >
                   Map to TV Channel
                 </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    setCreateTVForm({
+                      name: channel.name,
+                      logo_url: channel.icon_url || '',
+                      description: '',
+                      category: '',
+                      country: '',
+                      language: channel.language || '',
+                      epg_id: channel.channel_xml_id || '',
+                      is_active: true,
+                      is_favorite: false
+                    });
+                    setOpenCreateTVDialog(true);
+                  }}
+                  size="small"
+                >
+                  Create TV Channel
+                </Button>
               </Box>
             </Grid>
           </Grid>
         </CardContent>
       </Card>
-      
+
       {/* Tabs */}
       <Paper sx={{ mb: 3 }}>
         <Tabs
@@ -326,7 +360,7 @@ const EPGChannelDetail: React.FC = () => {
           <Tab label="String Mappings" />
         </Tabs>
       </Paper>
-      
+
       {/* Programs Tab */}
       <TabPanel value={tabValue} index={0}>
         <Box sx={{ mb: 3 }}>
@@ -412,8 +446,8 @@ const EPGChannelDetail: React.FC = () => {
                   <TableCell>
                     {program.description && (
                       <Typography variant="body2" color="text.secondary">
-                        {program.description.length > 100 
-                          ? `${program.description.substring(0, 100)}...` 
+                        {program.description.length > 100
+                          ? `${program.description.substring(0, 100)}...`
                           : program.description}
                       </Typography>
                     )}
@@ -430,7 +464,7 @@ const EPGChannelDetail: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
-        
+
         {totalPages > 1 && (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
             <Stack spacing={2}>
@@ -446,17 +480,17 @@ const EPGChannelDetail: React.FC = () => {
           </Box>
         )}
       </TabPanel>
-      
+
       {/* String Mappings Tab */}
       <TabPanel value={tabValue} index={1}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Typography variant="h6">
             String Mappings
           </Typography>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<AddIcon />} 
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
             onClick={() => setOpenStringMappingDialog(true)}
           >
             Add String Mapping
@@ -485,15 +519,15 @@ const EPGChannelDetail: React.FC = () => {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={mapping.is_exclusion ? 'Exclusion' : 'Inclusion'} 
+                    <Chip
+                      label={mapping.is_exclusion ? 'Exclusion' : 'Inclusion'}
                       color={mapping.is_exclusion ? 'error' : 'success'}
                       size="small"
                     />
                   </TableCell>
                   <TableCell>
-                    <IconButton 
-                      color="error" 
+                    <IconButton
+                      color="error"
                       onClick={() => handleDeleteStringMapping(mapping.id)}
                     >
                       <DeleteIcon />
@@ -512,12 +546,12 @@ const EPGChannelDetail: React.FC = () => {
           </Table>
         </TableContainer>
       </TabPanel>
-      
+
       {/* TV Channel Mapping Dialog */}
-      <Dialog 
-        open={openMappingDialog} 
-        onClose={() => setOpenMappingDialog(false)} 
-        maxWidth="md" 
+      <Dialog
+        open={openMappingDialog}
+        onClose={() => setOpenMappingDialog(false)}
+        maxWidth="md"
         fullWidth
       >
         <DialogTitle>Map to TV Channel</DialogTitle>
@@ -526,7 +560,7 @@ const EPGChannelDetail: React.FC = () => {
             Select a TV channel to map this EPG channel to:
           </Typography>
           <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
-            {tvChannels?.map((tvChannel: TVChannel) => (
+            {(tvChannels?.items || []).map((tvChannel: TVChannel) => (
               <Box
                 key={tvChannel.id}
                 sx={{
@@ -554,8 +588,8 @@ const EPGChannelDetail: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenMappingDialog(false)}>Cancel</Button>
-          <Button 
-            onClick={handleMapToTVChannel} 
+          <Button
+            onClick={handleMapToTVChannel}
             variant="contained"
             color="primary"
             disabled={!selectedTVChannel}
@@ -564,12 +598,12 @@ const EPGChannelDetail: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-      
+
       {/* String Mapping Dialog */}
-      <Dialog 
-        open={openStringMappingDialog} 
-        onClose={() => setOpenStringMappingDialog(false)} 
-        maxWidth="md" 
+      <Dialog
+        open={openStringMappingDialog}
+        onClose={() => setOpenStringMappingDialog(false)}
+        maxWidth="md"
         fullWidth
       >
         <DialogTitle>Add String Mapping</DialogTitle>
@@ -604,8 +638,8 @@ const EPGChannelDetail: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenStringMappingDialog(false)}>Cancel</Button>
-          <Button 
-            onClick={handleAddStringMapping} 
+          <Button
+            onClick={handleAddStringMapping}
             variant="contained"
             color="primary"
             disabled={!stringMappingFormData.search_pattern.trim()}
@@ -615,9 +649,104 @@ const EPGChannelDetail: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={6000} 
+      {/* Create TV Channel Dialog */}
+      <Dialog open={openCreateTVDialog} onClose={() => setOpenCreateTVDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create TV Channel from EPG</DialogTitle>
+        <DialogContent>
+          <Box my={2}>
+            <TextField
+              name="name"
+              label="Channel Name"
+              fullWidth
+              value={createTVForm.name}
+              onChange={e => setCreateTVForm(f => ({ ...f, name: e.target.value }))}
+              required
+              margin="dense"
+            />
+            <TextField
+              name="logo_url"
+              label="Logo URL"
+              fullWidth
+              value={createTVForm.logo_url}
+              onChange={e => setCreateTVForm(f => ({ ...f, logo_url: e.target.value }))}
+              margin="dense"
+            />
+            <TextField
+              name="description"
+              label="Description"
+              fullWidth
+              value={createTVForm.description}
+              onChange={e => setCreateTVForm(f => ({ ...f, description: e.target.value }))}
+              margin="dense"
+              multiline
+              rows={2}
+            />
+            <TextField
+              name="category"
+              label="Category"
+              fullWidth
+              value={createTVForm.category}
+              onChange={e => setCreateTVForm(f => ({ ...f, category: e.target.value }))}
+              margin="dense"
+            />
+            <TextField
+              name="country"
+              label="Country"
+              fullWidth
+              value={createTVForm.country}
+              onChange={e => setCreateTVForm(f => ({ ...f, country: e.target.value }))}
+              margin="dense"
+            />
+            <TextField
+              name="language"
+              label="Language"
+              fullWidth
+              value={createTVForm.language}
+              onChange={e => setCreateTVForm(f => ({ ...f, language: e.target.value }))}
+              margin="dense"
+            />
+            <TextField
+              name="epg_id"
+              label="EPG ID"
+              fullWidth
+              value={channel.channel_xml_id}
+              InputProps={{ readOnly: true }}
+              margin="dense"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenCreateTVDialog(false)} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            onClick={async () => {
+              setCreatingTV(true);
+              try {
+                const formWithEpgId = { ...createTVForm, epg_id: channel.channel_xml_id };
+                const res = await import('../services/tvChannelService').then(({ tvChannelService }) =>
+                  tvChannelService.create(formWithEpgId)
+                );
+                showSnackbar('TV Channel created and mapped to EPG', 'success');
+                setOpenCreateTVDialog(false);
+              } catch (err) {
+                showSnackbar('Failed to create TV Channel', 'error');
+              } finally {
+                setCreatingTV(false);
+              }
+            }}
+            color="primary"
+            variant="contained"
+            disabled={!createTVForm.name || creatingTV}
+          >
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
         onClose={closeSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >

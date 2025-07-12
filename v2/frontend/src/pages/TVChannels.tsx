@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Box, 
-  Typography, 
-  Button, 
-  Grid, 
-  Card, 
-  CardContent, 
+import {
+  Box,
+  Typography,
+  Button,
+  Grid,
+  Card,
+  CardContent,
   CardActions,
   Pagination,
   CircularProgress,
@@ -17,11 +17,26 @@ import {
   DialogContent,
   DialogActions,
   FormControlLabel,
-  Switch
+  Switch,
+  AppBar,
+  Toolbar,
+  Link,
+  useTheme,
+  useMediaQuery,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Avatar
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, PlayArrow as PlayIcon } from '@mui/icons-material';
 import { useAllTVChannels, useDeleteTVChannel, useCreateTVChannel, useUpdateTVChannel } from '../hooks/useTVChannels';
 import { TVChannel, TVChannelCreate, TVChannelUpdate } from '../types/tvChannelTypes';
+import { Link as RouterLink } from 'react-router-dom';
+import './TVChannels.css';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -46,6 +61,8 @@ const TVChannels: React.FC = () => {
   const deleteMutation = useDeleteTVChannel();
   const createMutation = useCreateTVChannel();
   const updateMutation = useUpdateTVChannel();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
     setPage(value);
@@ -101,7 +118,7 @@ const TVChannels: React.FC = () => {
 
   const handleUpdate = async () => {
     if (!selectedChannel) return;
-    
+
     try {
       await updateMutation.mutateAsync({
         id: selectedChannel.id,
@@ -139,336 +156,298 @@ const TVChannels: React.FC = () => {
     );
   }
 
-  const totalPages = Math.ceil((channels?.length || 0) / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil((channels?.total || 0) / ITEMS_PER_PAGE);
 
   return (
-    <Box p={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">TV Channels</Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleOpenCreateDialog}
-        >
-          Add TV Channel
-        </Button>
-      </Box>
-
-      <Grid container spacing={3}>
-        {channels?.map((channel) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={channel.id}>
-            <Card sx={{ cursor: 'pointer' }} onClick={() => navigate(`/tv-channels/${channel.id}`)}>
-              <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="start">
-                  <Typography variant="h6" gutterBottom>
-                    {channel.name}
-                  </Typography>
-                  {channel.is_favorite && (
-                    <span role="img" aria-label="favorite">⭐</span>
-                  )}
-                </Box>
-                
-                {channel.logo_url && (
-                  <Box mb={2} height={80} display="flex" justifyContent="center">
-                    <img 
-                      src={channel.logo_url} 
-                      alt={`${channel.name} logo`} 
-                      style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} 
-                    />
-                  </Box>
-                )}
-                
-                {channel.category && (
-                  <Typography variant="body2" color="textSecondary">
-                    Category: {channel.category}
-                  </Typography>
-                )}
-                
-                {channel.language && (
-                  <Typography variant="body2" color="textSecondary">
-                    Language: {channel.language}
-                  </Typography>
-                )}
-                
-                {channel.country && (
-                  <Typography variant="body2" color="textSecondary">
-                    Country: {channel.country}
-                  </Typography>
-                )}
-                
-                <Typography variant="body2" color="textSecondary">
-                  Streams: {channel.acestream_channels.length}
-                </Typography>
-                
-                <Typography 
-                  variant="body2" 
-                  color={channel.is_active ? "primary" : "error"}
-                >
-                  Status: {channel.is_active ? 'Active' : 'Inactive'}
-                </Typography>
-              </CardContent>
-              <CardActions>
-                <IconButton 
-                  size="small" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenEditDialog(channel);
-                  }}
-                >
-                  <EditIcon />
-                </IconButton>
-                <IconButton 
-                  size="small" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(channel.id);
-                  }}
-                >
-                  <DeleteIcon />
-                </IconButton>
-                <IconButton 
-                  size="small" 
-                  color="primary"
-                  disabled={channel.acestream_channels.length === 0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/tv-channels/${channel.id}`);
-                  }}
-                >
-                  <PlayIcon />
-                </IconButton>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      <Box display="flex" justifyContent="center" mt={4}>
-        <Pagination
-          count={totalPages}
-          page={page}
-          onChange={handlePageChange}
-          color="primary"
-        />
-      </Box>
-
-      {/* Create TV Channel Dialog */}
-      <Dialog open={openCreateDialog} onClose={() => setOpenCreateDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add TV Channel</DialogTitle>
-        <DialogContent>
-          <Box my={2}>
-            <TextField
-              autoFocus
-              name="name"
-              label="Channel Name"
-              fullWidth
-              value={formData.name}
-              onChange={handleFormChange}
-              required
-              margin="dense"
-            />
-            <TextField
-              name="logo_url"
-              label="Logo URL"
-              fullWidth
-              value={formData.logo_url}
-              onChange={handleFormChange}
-              margin="dense"
-            />
-            <TextField
-              name="description"
-              label="Description"
-              fullWidth
-              value={formData.description || ''}
-              onChange={handleFormChange}
-              margin="dense"
-              multiline
-              rows={3}
-            />
-            <TextField
-              name="category"
-              label="Category"
-              fullWidth
-              value={formData.category || ''}
-              onChange={handleFormChange}
-              margin="dense"
-            />
-            <TextField
-              name="country"
-              label="Country"
-              fullWidth
-              value={formData.country || ''}
-              onChange={handleFormChange}
-              margin="dense"
-            />
-            <TextField
-              name="language"
-              label="Language"
-              fullWidth
-              value={formData.language || ''}
-              onChange={handleFormChange}
-              margin="dense"
-            />
-            <TextField
-              name="channel_number"
-              label="Channel Number"
-              type="number"
-              fullWidth
-              value={formData.channel_number || ''}
-              onChange={handleFormChange}
-              margin="dense"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.is_active === true}
-                  onChange={handleFormChange}
-                  name="is_active"
-                  color="primary"
-                />
-              }
-              label="Active"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.is_favorite === true}
-                  onChange={handleFormChange}
-                  name="is_favorite"
-                  color="primary"
-                />
-              }
-              label="Favorite"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenCreateDialog(false)} color="inherit">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleCreate} 
-            color="primary" 
+    <Box sx={{ width: '100%' }}>
+      {/* Removed AppBar/Toolbar navigation buttons, now handled by NavBar */}
+      <Box p={isMobile ? 1 : 3}>
+        <Box display="flex" flexDirection={isMobile ? 'column' : 'row'} justifyContent="space-between" alignItems={isMobile ? 'stretch' : 'center'} mb={3} gap={2}>
+          <Typography variant="h4">TV Channels</Typography>
+          <Button
             variant="contained"
-            disabled={!formData.name}
+            color="primary"
+            onClick={handleOpenCreateDialog}
+            sx={{ width: isMobile ? '100%' : 'auto' }}
           >
-            Create
+            Add TV Channel
           </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+        <TableContainer component={Paper}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Logo</TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>Number</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell>Language</TableCell>
+                <TableCell>Country</TableCell>
+                <TableCell>Streams</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(channels?.items || []).map((channel) => (
+                <TableRow key={channel.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/tv-channels/${channel.id}`)}>
+                  <TableCell>
+                    {channel.logo_url ? <Avatar src={channel.logo_url} alt={channel.name} /> : null}
+                  </TableCell>
+                  <TableCell>{channel.name}</TableCell>
+                  <TableCell>{channel.channel_number ?? '—'}</TableCell>
+                  <TableCell>{channel.category || '-'}</TableCell>
+                  <TableCell>{channel.language || '-'}</TableCell>
+                  <TableCell>{channel.country || '-'}</TableCell>
+                  <TableCell>{Array.isArray(channel.acestream_channels) ? channel.acestream_channels.length : '—'}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color={channel.is_active ? 'primary' : 'error'}>
+                      {channel.is_active ? 'Active' : 'Inactive'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell onClick={e => e.stopPropagation()}>
+                    <IconButton size="small" onClick={() => handleOpenEditDialog(channel)}>
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton size="small" onClick={() => handleDelete(channel.id)}>
+                      <DeleteIcon />
+                    </IconButton>
+                    <IconButton size="small" color="primary" disabled={channel.acestream_channels.length === 0} onClick={() => navigate(`/tv-channels/${channel.id}`)}>
+                      <PlayIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <Box display="flex" justifyContent="center" mt={4}>
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={handlePageChange}
+            color="primary"
+          />
+        </Box>
 
-      {/* Edit TV Channel Dialog */}
-      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit TV Channel</DialogTitle>
-        <DialogContent>
-          <Box my={2}>
-            <TextField
-              autoFocus
-              name="name"
-              label="Channel Name"
-              fullWidth
-              value={formData.name}
-              onChange={handleFormChange}
-              required
-              margin="dense"
-            />
-            <TextField
-              name="logo_url"
-              label="Logo URL"
-              fullWidth
-              value={formData.logo_url}
-              onChange={handleFormChange}
-              margin="dense"
-            />
-            <TextField
-              name="description"
-              label="Description"
-              fullWidth
-              value={formData.description || ''}
-              onChange={handleFormChange}
-              margin="dense"
-              multiline
-              rows={3}
-            />
-            <TextField
-              name="category"
-              label="Category"
-              fullWidth
-              value={formData.category || ''}
-              onChange={handleFormChange}
-              margin="dense"
-            />
-            <TextField
-              name="country"
-              label="Country"
-              fullWidth
-              value={formData.country || ''}
-              onChange={handleFormChange}
-              margin="dense"
-            />
-            <TextField
-              name="language"
-              label="Language"
-              fullWidth
-              value={formData.language || ''}
-              onChange={handleFormChange}
-              margin="dense"
-            />
-            <TextField
-              name="epg_id"
-              label="EPG ID"
-              fullWidth
-              value={formData.epg_id || ''}
-              onChange={handleFormChange}
-              margin="dense"
-            />
-            <TextField
-              name="channel_number"
-              label="Channel Number"
-              type="number"
-              fullWidth
-              value={formData.channel_number || ''}
-              onChange={handleFormChange}
-              margin="dense"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.is_active === true}
-                  onChange={handleFormChange}
-                  name="is_active"
-                  color="primary"
-                />
-              }
-              label="Active"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.is_favorite === true}
-                  onChange={handleFormChange}
-                  name="is_favorite"
-                  color="primary"
-                />
-              }
-              label="Favorite"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenEditDialog(false)} color="inherit">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleUpdate} 
-            color="primary" 
-            variant="contained"
-            disabled={!formData.name}
-          >
-            Update
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {/* Create TV Channel Dialog */}
+        <Dialog open={openCreateDialog} onClose={() => setOpenCreateDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Add TV Channel</DialogTitle>
+          <DialogContent>
+            <Box my={2}>
+              <TextField
+                autoFocus
+                name="name"
+                label="Channel Name"
+                fullWidth
+                value={formData.name}
+                onChange={handleFormChange}
+                required
+                margin="dense"
+              />
+              <TextField
+                name="logo_url"
+                label="Logo URL"
+                fullWidth
+                value={formData.logo_url}
+                onChange={handleFormChange}
+                margin="dense"
+              />
+              <TextField
+                name="description"
+                label="Description"
+                fullWidth
+                value={formData.description || ''}
+                onChange={handleFormChange}
+                margin="dense"
+                multiline
+                rows={3}
+              />
+              <TextField
+                name="category"
+                label="Category"
+                fullWidth
+                value={formData.category || ''}
+                onChange={handleFormChange}
+                margin="dense"
+              />
+              <TextField
+                name="country"
+                label="Country"
+                fullWidth
+                value={formData.country || ''}
+                onChange={handleFormChange}
+                margin="dense"
+              />
+              <TextField
+                name="language"
+                label="Language"
+                fullWidth
+                value={formData.language || ''}
+                onChange={handleFormChange}
+                margin="dense"
+              />
+              <TextField
+                name="channel_number"
+                label="Channel Number"
+                type="number"
+                fullWidth
+                value={formData.channel_number || ''}
+                onChange={handleFormChange}
+                margin="dense"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.is_active === true}
+                    onChange={handleFormChange}
+                    name="is_active"
+                    color="primary"
+                  />
+                }
+                label="Active"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.is_favorite === true}
+                    onChange={handleFormChange}
+                    name="is_favorite"
+                    color="primary"
+                  />
+                }
+                label="Favorite"
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenCreateDialog(false)} color="inherit">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreate}
+              color="primary"
+              variant="contained"
+              disabled={!formData.name}
+            >
+              Create
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Edit TV Channel Dialog */}
+        <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Edit TV Channel</DialogTitle>
+          <DialogContent>
+            <Box my={2}>
+              <TextField
+                autoFocus
+                name="name"
+                label="Channel Name"
+                fullWidth
+                value={formData.name}
+                onChange={handleFormChange}
+                required
+                margin="dense"
+              />
+              <TextField
+                name="logo_url"
+                label="Logo URL"
+                fullWidth
+                value={formData.logo_url}
+                onChange={handleFormChange}
+                margin="dense"
+              />
+              <TextField
+                name="description"
+                label="Description"
+                fullWidth
+                value={formData.description || ''}
+                onChange={handleFormChange}
+                margin="dense"
+                multiline
+                rows={3}
+              />
+              <TextField
+                name="category"
+                label="Category"
+                fullWidth
+                value={formData.category || ''}
+                onChange={handleFormChange}
+                margin="dense"
+              />
+              <TextField
+                name="country"
+                label="Country"
+                fullWidth
+                value={formData.country || ''}
+                onChange={handleFormChange}
+                margin="dense"
+              />
+              <TextField
+                name="language"
+                label="Language"
+                fullWidth
+                value={formData.language || ''}
+                onChange={handleFormChange}
+                margin="dense"
+              />
+              <TextField
+                name="epg_id"
+                label="EPG ID"
+                fullWidth
+                value={formData.epg_id || ''}
+                onChange={handleFormChange}
+                margin="dense"
+              />
+              <TextField
+                name="channel_number"
+                label="Channel Number"
+                type="number"
+                fullWidth
+                value={formData.channel_number || ''}
+                onChange={handleFormChange}
+                margin="dense"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.is_active === true}
+                    onChange={handleFormChange}
+                    name="is_active"
+                    color="primary"
+                  />
+                }
+                label="Active"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.is_favorite === true}
+                    onChange={handleFormChange}
+                    name="is_favorite"
+                    color="primary"
+                  />
+                }
+                label="Favorite"
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenEditDialog(false)} color="inherit">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdate}
+              color="primary"
+              variant="contained"
+              disabled={!formData.name}
+            >
+              Update
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
     </Box>
   );
 };

@@ -112,16 +112,16 @@ const Settings: React.FC = () => {
     setShowSuccess(false);
   };
 
-  const isLoading = 
-    baseUrlQuery.isLoading || 
-    aceEngineUrlQuery.isLoading || 
-    rescrapeIntervalQuery.isLoading || 
+  const isLoading =
+    baseUrlQuery.isLoading ||
+    aceEngineUrlQuery.isLoading ||
+    rescrapeIntervalQuery.isLoading ||
     addPidQuery.isLoading;
 
-  const isSubmitting = 
-    updateBaseUrlMutation.isLoading || 
-    updateAceEngineUrlMutation.isLoading || 
-    updateRescrapeIntervalMutation.isLoading || 
+  const isSubmitting =
+    updateBaseUrlMutation.isLoading ||
+    updateAceEngineUrlMutation.isLoading ||
+    updateRescrapeIntervalMutation.isLoading ||
     updateAddPidMutation.isLoading;
 
   if (isLoading) {
@@ -153,19 +153,19 @@ const Settings: React.FC = () => {
               Error checking Acestream Engine status: {acestreamStatusQuery.error.toString()}
             </Alert>
           ) : (
-            <Alert 
+            <Alert
               severity={acestreamStatusQuery.data?.status === 'online' ? 'success' : 'warning'}
               icon={false}
             >
               <Box display="flex" alignItems="center">
-                <Box 
+                <Box
                   sx={{
-                    width: 12, 
-                    height: 12, 
+                    width: 12,
+                    height: 12,
                     borderRadius: '50%',
                     backgroundColor: acestreamStatusQuery.data?.status === 'online' ? 'success.main' : 'warning.main',
                     mr: 2
-                  }} 
+                  }}
                 />
                 <Typography>
                   {acestreamStatusQuery.data?.message || 'Status unknown'}
@@ -174,8 +174,8 @@ const Settings: React.FC = () => {
             </Alert>
           )}
           <Box mt={2}>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               onClick={() => acestreamStatusQuery.refetch()}
               disabled={acestreamStatusQuery.isLoading}
             >
@@ -202,9 +202,9 @@ const Settings: React.FC = () => {
                   helperText="The base URL for Acestream links (e.g., acestream://)"
                 />
                 <Box mt={2}>
-                  <Button 
-                    type="submit" 
-                    variant="contained" 
+                  <Button
+                    type="submit"
+                    variant="contained"
                     color="primary"
                     disabled={isSubmitting || baseUrl === baseUrlQuery.data}
                   >
@@ -236,9 +236,9 @@ const Settings: React.FC = () => {
                   helperText="The URL of your Acestream Engine (e.g., http://localhost:6878)"
                 />
                 <Box mt={2}>
-                  <Button 
-                    type="submit" 
-                    variant="contained" 
+                  <Button
+                    type="submit"
+                    variant="contained"
                     color="primary"
                     disabled={isSubmitting || aceEngineUrl === aceEngineUrlQuery.data}
                   >
@@ -272,9 +272,9 @@ const Settings: React.FC = () => {
                   helperText="Hours between automatic rescrapes (1-168)"
                 />
                 <Box mt={2}>
-                  <Button 
-                    type="submit" 
-                    variant="contained" 
+                  <Button
+                    type="submit"
+                    variant="contained"
                     color="primary"
                     disabled={isSubmitting || rescrapeInterval === rescrapeIntervalQuery.data}
                   >

@@ -1,6 +1,12 @@
+
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { TVChannel, TVChannelCreate, TVChannelUpdate } from '../types/tvChannelTypes';
 import { tvChannelService } from '../services/tvChannelService';
+
+export interface PaginatedTVChannels {
+  items: TVChannel[];
+  total: number;
+}
 
 const QUERY_KEYS = {
   ALL_TV_CHANNELS: 'tvChannels',
@@ -12,7 +18,7 @@ const QUERY_KEYS = {
  * Hook for fetching all TV channels
  */
 export const useAllTVChannels = (skip = 0, limit = 100) => {
-  return useQuery(
+  return useQuery<PaginatedTVChannels>(
     [QUERY_KEYS.ALL_TV_CHANNELS, skip, limit],
     () => tvChannelService.getAll(skip, limit),
     {
@@ -54,7 +60,7 @@ export const useTVChannelAcestreams = (id: number) => {
  */
 export const useCreateTVChannel = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation(
     (tvChannel: TVChannelCreate) => tvChannelService.create(tvChannel),
     {
@@ -70,9 +76,9 @@ export const useCreateTVChannel = () => {
  */
 export const useUpdateTVChannel = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation(
-    ({ id, updates }: { id: number; updates: TVChannelUpdate }) => 
+    ({ id, updates }: { id: number; updates: TVChannelUpdate }) =>
       tvChannelService.update(id, updates),
     {
       onSuccess: (data, { id }) => {
@@ -88,7 +94,7 @@ export const useUpdateTVChannel = () => {
  */
 export const useDeleteTVChannel = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation(
     (id: number) => tvChannelService.delete(id),
     {
@@ -104,9 +110,9 @@ export const useDeleteTVChannel = () => {
  */
 export const useAssociateAcestream = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation(
-    ({ tvChannelId, aceStreamId }: { tvChannelId: number; aceStreamId: string }) => 
+    ({ tvChannelId, aceStreamId }: { tvChannelId: number; aceStreamId: string }) =>
       tvChannelService.associateAcestream(tvChannelId, aceStreamId),
     {
       onSuccess: (_, { tvChannelId }) => {
@@ -122,9 +128,9 @@ export const useAssociateAcestream = () => {
  */
 export const useRemoveAcestreamAssociation = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation(
-    ({ tvChannelId, aceStreamId }: { tvChannelId: number; aceStreamId: string }) => 
+    ({ tvChannelId, aceStreamId }: { tvChannelId: number; aceStreamId: string }) =>
       tvChannelService.removeAcestreamAssociation(tvChannelId, aceStreamId),
     {
       onSuccess: (_, { tvChannelId }) => {
@@ -140,7 +146,7 @@ export const useRemoveAcestreamAssociation = () => {
  */
 export const useBatchAssignAcestreams = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation(
     (assignments: Record<string, string[]>) => tvChannelService.batchAssignAcestreams(assignments),
     {
@@ -158,7 +164,7 @@ export const useBatchAssignAcestreams = () => {
  */
 export const useAssociateByEpg = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation(
     () => tvChannelService.associateByEpg(),
     {
@@ -176,7 +182,7 @@ export const useAssociateByEpg = () => {
  */
 export const useBulkUpdateEpg = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation(
     () => tvChannelService.bulkUpdateEpg(),
     {

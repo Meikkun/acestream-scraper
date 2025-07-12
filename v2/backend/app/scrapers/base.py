@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class BaseScraper(ABC):
     """Base scraper class with common acestream link extraction logic."""
 
-    def __init__(self, url_obj: BaseURL, timeout: int = 10, retries: int = 3):
+    def __init__(self, url_obj: BaseURL, timeout: int = 10, retries: int = 3, db=None, epg_service=None, tv_channel_service=None):
         self.url_obj = url_obj
         self.timeout = timeout
         self.retries = retries
@@ -28,9 +28,11 @@ class BaseScraper(ABC):
         self.m3u_pattern = re.compile(r'https?://[^\s<>"]+?\.m3u[8]?(?=[\s<>"]|$)')
         self.identified_ids: Set[str] = set()
         self.m3u_service = M3UService()
-        # Pattern to match multiple whitespace characters (spaces, tabs, newlines)
         self.whitespace_pattern = re.compile(r'\s+')
         self.current_url = url_obj.original_url
+        self.db = db
+        self.epg_service = epg_service
+        self.tv_channel_service = tv_channel_service
 
     def clean_channel_name(self, name: str) -> str:
         """Clean channel name by replacing multiple whitespace with single space and trimming."""
@@ -49,14 +51,14 @@ class BaseScraper(ABC):
     def extract_from_script(self, soup: BeautifulSoup) -> List[Tuple[str, str]]:
         """Extract acestream links from script tags."""
         channels = []
-        
+
         # First try to find fileContents with listaplana.txt
         for script in soup.find_all('script'):
             if script.string and 'fileContents' in script.string and 'listaplana.txt' in script.string:
                 logger.info("Found fileContents with listaplana.txt - prioritizing this source")
-                
+
                 # Extract the listaplana.txt content using regex
-                lista_plana_match = re.search(r'fileContents\s*=\s*\{[^}]*?listaplana\.txt[^}]*?:\s*`(.*?)`', 
+                lista_plana_match = re.search(r'fileContents\s*=\s*\{[^}]*?listaplana\.txt[^}]*?:\s*`(.*?)`',
                                              script.string, re.DOTALL)
                 if lista_plana_match:
                     content = lista_plana_match.group(1)
@@ -65,23 +67,23 @@ class BaseScraper(ABC):
                         acestream_match = self.acestream_pattern.search(line)
                         if acestream_match:
                             channel_id = acestream_match.group(1)
-                            
+
                             # Only extract name if it exists before the acestream://
                             name_part = line.split('acestream://')[0].strip()
                             if name_part:
                                 name = name_part.rstrip(':- ')
                                 # Clean the channel name
                                 name = self.clean_channel_name(name)
-                                
+
                                 if channel_id and channel_id not in self.identified_ids:
                                     channels.append((channel_id, name))
                                     self.identified_ids.add(channel_id)
-                    
+
                     # If we found channels from listaplana.txt, return immediately
                     if channels:
                         logger.info(f"Found {len(channels)} channels from listaplana.txt")
                         return channels
-        
+
         # Fallback to regular linksData extraction only if listaplana.txt didn't yield results
         script_tag = soup.find('script', text=re.compile(r'const linksData'))
         if script_tag:
@@ -108,7 +110,7 @@ class BaseScraper(ABC):
         """Extract acestream links from general content."""
         channels = []
         ids = self.acestream_pattern.findall(str(soup))
-        
+
         for id in ids:
             if id not in self.identified_ids:
                 link_name_div = soup.find('div', class_='link-name')
@@ -126,43 +128,39 @@ class BaseScraper(ABC):
     async def extract_from_m3u_links(self, content: str) -> List[Tuple[str, str, Dict[str, Any]]]:
         """Extract channels from M3U files linked in the content."""
         channels = []
-        
-        # Find M3U links in content
         m3u_urls = await self.m3u_service.find_m3u_links(content, self.current_url)
-        
-        # Add any direct M3U URLs found via regex
         direct_m3u_urls = set(self.m3u_pattern.findall(content))
         m3u_urls.extend(direct_m3u_urls)
-        
-        # Process each unique M3U URL
         for m3u_url in set(m3u_urls):
             try:
-                m3u_channels = await self.m3u_service.extract_channels_from_m3u(m3u_url)
+                m3u_channels = await self.m3u_service.extract_channels_from_m3u(
+                    m3u_url,
+                    db=self.db,
+                    epg_service=self.epg_service,
+                    tv_channel_service=self.tv_channel_service
+                )
                 for channel_id, name, metadata in m3u_channels:
-                    # Only add channels with actual names, not ID-based names
                     if channel_id not in self.identified_ids and name and not name.startswith("Channel "):
-                        # Clean the channel name
                         cleaned_name = self.clean_channel_name(name)
                         channels.append((channel_id, cleaned_name, metadata))
                         self.identified_ids.add(channel_id)
             except Exception as e:
                 logger.warning(f"Failed to process M3U file {m3u_url}: {e}")
-                
         return channels
 
     def extract_from_iframe_content(self, soup: BeautifulSoup) -> List[Tuple[str, str, Dict[str, Any]]]:
         """Extract acestream links from iframe content in ZeroNet sites."""
         channels = []
-        
+
         # Try to extract from list view (channel-item)
         channel_items = soup.select('.channel-item')
         for item in channel_items:
             name_elem = item.select_one('.item-name')
             url_elem = item.select_one('.item-url')
-            
+
             if url_elem:  # We only require the ID to be present
                 channel_id = url_elem.get_text().strip()
-                
+
                 # Only add the name if it exists and is not empty
                 if name_elem and name_elem.get_text().strip():
                     name = name_elem.get_text().strip()
@@ -171,7 +169,7 @@ class BaseScraper(ABC):
                     if channel_id and channel_id not in self.identified_ids:
                         channels.append((channel_id, name, {}))
                         self.identified_ids.add(channel_id)
-        
+
         # Try to extract from script content with fileContents variable
         script_tags = soup.find_all('script')
         for script in script_tags:
@@ -187,69 +185,56 @@ class BaseScraper(ABC):
                             if len(parts) == 2:
                                 name = parts[0].strip().rstrip(':- ')
                                 channel_id = parts[1].strip()
-                                
+
                                 # Clean the channel name
                                 name = self.clean_channel_name(name)
-                                
+
                                 if name and channel_id and channel_id not in self.identified_ids:
                                     channels.append((channel_id, name, {}))
                                     self.identified_ids.add(channel_id)
-        
+
         return channels
 
     async def scrape(self, url: str = None) -> Tuple[List[Tuple[str, str, Dict[str, Any]]], str]:
         """Main scraping method."""
-        # Use provided URL or the normalized URL from url_obj
         url_to_scrape = url if url else self.url_obj.get_normalized_url()
         self.current_url = url_to_scrape
-        
         channels = []
         status = "OK"
         retries_left = self.retries
-
-        # Check if the URL is directly pointing to an M3U file
-        is_m3u_file = url_to_scrape.lower().endswith(('.m3u', '.m3u8'))
-        
+        is_m3u_file = url_to_scrape.lower().endswith((".m3u", ".m3u8"))
         while retries_left >= 0:
             try:
                 content = await self.fetch_content(url_to_scrape)
-                
-                # Direct handling for M3U files
                 if is_m3u_file:
                     logger.info(f"Processing direct M3U file: {url_to_scrape}")
-                    # Parse the M3U content directly
-                    direct_channels = self.m3u_service.extract_channels_from_content(content)
-                    
+                    direct_channels = self.m3u_service.extract_channels_from_content(
+                        content,
+                        db=self.db,
+                        epg_service=self.epg_service,
+                        tv_channel_service=self.tv_channel_service
+                    )
                     for channel_id, name, metadata in direct_channels:
                         if channel_id not in self.identified_ids and name:
                             cleaned_name = self.clean_channel_name(name)
                             channels.append((channel_id, cleaned_name, metadata))
                             self.identified_ids.add(channel_id)
-                    
                     if channels:
                         logger.info(f"Extracted {len(channels)} channels from direct M3U file")
                     else:
                         logger.warning(f"No channels found in M3U file content")
                     break
-                
                 soup = BeautifulSoup(content, 'html.parser')
-                
-                # First check script tags for listaplana.txt content
                 script_channels = [(id, name, {}) for id, name in self.extract_from_script(soup)]
-                
-                # If we found channels from script (possibly from listaplana.txt), use only those
                 if script_channels:
                     channels.extend(script_channels)
                 else:
-                    # Otherwise, try other extraction methods
                     iframe_channels = self.extract_from_iframe_content(soup)
                     content_channels = [(id, name, {}) for id, name in self.extract_from_content(soup)]
                     m3u_channels = await self.extract_from_m3u_links(content)
-                    
                     channels.extend(iframe_channels)
                     channels.extend(content_channels)
                     channels.extend(m3u_channels)
-                
                 break
             except Exception as e:
                 logger.error(f"Error scraping {url_to_scrape}: {str(e)}")
@@ -258,30 +243,25 @@ class BaseScraper(ABC):
                     status = f"Error: {str(e)}"
                     break
                 self.timeout += 5
-
-        # Log results summary
         if channels:
             logger.info(f"Successfully extracted {len(channels)} channels from {url_to_scrape}")
         else:
             logger.warning(f"No channels extracted from {url_to_scrape}")
-
-        # Update URL status in database
         await self.update_url_status(url_to_scrape, status)
-        
         return channels, status
 
     async def update_url_status(self, url: str, status: str, error: str = None):
         """Update URL status in database."""
         # Get DB session
         db = next(get_db())
-        
+
         from app.models.models import ScrapedURL
-        
+
         url_record = db.query(ScrapedURL).filter(ScrapedURL.url == url).first()
-        
+
         if not url_record:
             url_record = ScrapedURL(url=url)
-        
+
         url_record.update_status(status, error)
         db.add(url_record)
         db.commit()

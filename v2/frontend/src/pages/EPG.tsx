@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from 'react-query';
-import { 
-  Typography, 
-  Box, 
-  Paper, 
-  Tabs, 
+import {
+  Typography,
+  Box,
+  Paper,
+  Tabs,
   Tab,
-  Button, 
-  TextField, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
+  Button,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
   DialogActions,
   Table,
   TableBody,
@@ -32,7 +32,8 @@ import {
   Switch,
   Divider,
   Stack,
-  Slider
+  Slider,
+  Checkbox
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -44,17 +45,18 @@ import {
   Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
-import { 
-  useEPGSources, 
-  useEPGChannels, 
-  useCreateEPGSource, 
-  useUpdateEPGSource, 
-  useDeleteEPGSource, 
-  useRefreshEPGSource, 
+import {
+  useEPGSources,
+  useEPGChannels,
+  useCreateEPGSource,
+  useUpdateEPGSource,
+  useDeleteEPGSource,
+  useRefreshEPGSource,
   useRefreshAllEPGSources,
   useMapEPGChannel,
   useDownloadEPGXML
 } from '../hooks/useEPG';
+import { useAllTVChannels } from '../hooks/useTVChannels';
 import { EPGSource, EPGChannel, CreateEPGSourceDTO, UpdateEPGSourceDTO, EPGXMLGenerationParams, epgService } from '../services/epgService';
 
 interface EPGSourceFormData {
@@ -114,25 +116,29 @@ const EPG: React.FC = () => {
     days_back: 1,
     days_forward: 7
   });
-  
+
   // Snackbar state
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'success' as 'success' | 'error' | 'warning' | 'info'
   });
-  
+
   // React Query hooks
   const { data: epgSources, isLoading: isLoadingSources } = useEPGSources();
   const { data: epgChannels, isLoading: isLoadingChannels } = useEPGChannels();
+  const { data: tvChannels, isLoading: isLoadingTVChannels } = useAllTVChannels(0, 1000);
   const { mutateAsync: createSource } = useCreateEPGSource();
   const { mutateAsync: updateSource } = useUpdateEPGSource(editSourceId || 0);
   const { mutateAsync: deleteSource } = useDeleteEPGSource();
   const { mutateAsync: refreshAllSources, isLoading: isRefreshingAll } = useRefreshAllEPGSources();
   const { mutateAsync: downloadEPGXML, isLoading: isDownloadingXML } = useDownloadEPGXML();
-  
+
   // State for tracking which source is being refreshed
   const [refreshingSourceId, setRefreshingSourceId] = useState<number | null>(null);
+
+  // State for EPG Channels selection
+  const [selectedEPGChannelIds, setSelectedEPGChannelIds] = useState<number[]>([]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -236,7 +242,7 @@ const EPG: React.FC = () => {
       const results = await refreshAllSources();
       const successCount = results.filter(r => r.success).length;
       const failCount = results.length - successCount;
-      
+
       if (failCount === 0) {
         showSnackbar(`All ${results.length} EPG sources refreshed successfully`, 'success');
       } else {
@@ -246,7 +252,7 @@ const EPG: React.FC = () => {
       showSnackbar(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     }
   };
-  
+
   // Handle XML options changes
   const handleXmlOptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = event.target;
@@ -255,7 +261,7 @@ const EPG: React.FC = () => {
       [name]: type === 'checkbox' ? checked : value
     });
   };
-  
+
   // Handle day range slider change
   const handleDaysRangeChange = (event: Event, newValue: number | number[]) => {
     if (Array.isArray(newValue)) {
@@ -266,7 +272,7 @@ const EPG: React.FC = () => {
       });
     }
   };
-  
+
   // Handle XML download
   const handleDownloadXML = async () => {
     try {
@@ -277,12 +283,60 @@ const EPG: React.FC = () => {
     }
   };
 
+  // EPG Channels selection handlers
+  // Build a set of mapped EPG XML IDs (or channel_xml_id)
+  const mappedEpgXmlIds = React.useMemo(() => {
+    if (!tvChannels) return new Set<string>();
+    return new Set((tvChannels?.items || []).filter((c: any) => c.epg_id).map((c: any) => c.epg_id));
+  }, [tvChannels]);
+
+  const isChannelMapped = (channel: EPGChannel) => mappedEpgXmlIds.has(channel.channel_xml_id);
+
+  const handleSelectAllChannels = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.checked && epgChannels) {
+      // Only select unmapped channels
+      setSelectedEPGChannelIds(epgChannels.filter((c) => !isChannelMapped(c)).map((c) => c.id));
+    } else {
+      setSelectedEPGChannelIds([]);
+    }
+  };
+
+  const handleSelectChannel = (id: number) => {
+    const channel = epgChannels?.find(c => c.id === id);
+    if (!channel || isChannelMapped(channel)) return;
+    setSelectedEPGChannelIds((prev) =>
+      prev.includes(id) ? prev.filter((cid) => cid !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkCreateTVChannels = async () => {
+    if (!epgChannels) return;
+    // Filter out already-mapped channels
+    const unmappedIds = selectedEPGChannelIds.filter(id => {
+      const channel = epgChannels.find(c => c.id === id);
+      return channel && !isChannelMapped(channel);
+    });
+    if (unmappedIds.length === 0) {
+      showSnackbar('No unmapped EPG channels selected.', 'warning');
+      return;
+    }
+    try {
+      // TODO: Replace with actual API call to create TV channels in bulk
+      // Example: await tvChannelService.bulkCreateFromEPG(unmappedIds);
+      showSnackbar(`Requested creation of ${unmappedIds.length} TV channels`, 'info');
+      setSelectedEPGChannelIds([]);
+      // Optionally refresh TV channels list here
+    } catch (error) {
+      showSnackbar(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    }
+  };
+
   return (
     <Box sx={{ width: '100%', typography: 'body1' }}>
       <Typography variant="h4" gutterBottom>
         EPG Management
       </Typography>
-      
+
       <Paper sx={{ mb: 3 }}>
         <Tabs
           value={tabValue}
@@ -296,20 +350,20 @@ const EPG: React.FC = () => {
           <Tab label="XML Generation" />
         </Tabs>
       </Paper>
-      
+
       <TabPanel value={tabValue} index={0}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<AddIcon />} 
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
             onClick={handleAddSourceClick}
           >
             Add EPG Source
           </Button>
-          <Button 
-            variant="outlined" 
-            startIcon={<RefreshIcon />} 
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
             onClick={handleRefreshAllClick}
             disabled={isRefreshingAll}
           >
@@ -344,11 +398,11 @@ const EPG: React.FC = () => {
                       <Chip label="Disabled" color="default" size="small" />
                     )}
                     {source.error_count > 0 && (
-                      <Chip 
-                        label={`Errors: ${source.error_count}`} 
-                        color="error" 
-                        size="small" 
-                        sx={{ ml: 1 }} 
+                      <Chip
+                        label={`Errors: ${source.error_count}`}
+                        color="error"
+                        size="small"
+                        sx={{ ml: 1 }}
                         title={source.last_error}
                       />
                     )}
@@ -361,8 +415,8 @@ const EPG: React.FC = () => {
                     )}
                   </TableCell>
                   <TableCell>
-                    <IconButton 
-                      color="primary" 
+                    <IconButton
+                      color="primary"
                       onClick={() => handleRefreshSourceClick(source.id)}
                       disabled={refreshingSourceId === source.id}
                     >
@@ -390,10 +444,18 @@ const EPG: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        <Box sx={{ mb: 2 }}>
+        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h6" gutterBottom>
             Available EPG Channels
           </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={selectedEPGChannelIds.length === 0}
+            onClick={handleBulkCreateTVChannels}
+          >
+            Create TV Channels ({selectedEPGChannelIds.length})
+          </Button>
         </Box>
 
         {isLoadingChannels ? (
@@ -404,6 +466,14 @@ const EPG: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    indeterminate={selectedEPGChannelIds.length > 0 && epgChannels && selectedEPGChannelIds.length < epgChannels.length}
+                    checked={epgChannels && epgChannels.length > 0 && selectedEPGChannelIds.length === epgChannels.length}
+                    onChange={handleSelectAllChannels}
+                    inputProps={{ 'aria-label': 'select all EPG channels' }}
+                  />
+                </TableCell>
                 <TableCell>Name</TableCell>
                 <TableCell>XML ID</TableCell>
                 <TableCell>Source</TableCell>
@@ -413,7 +483,15 @@ const EPG: React.FC = () => {
             </TableHead>
             <TableBody>
               {(epgChannels || []).map((channel) => (
-                <TableRow key={channel.id}>
+                <TableRow key={channel.id} selected={selectedEPGChannelIds.includes(channel.id)}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={selectedEPGChannelIds.includes(channel.id)}
+                      onChange={() => handleSelectChannel(channel.id)}
+                      inputProps={{ 'aria-label': `select EPG channel ${channel.name}` }}
+                      disabled={isChannelMapped(channel)}
+                    />
+                  </TableCell>
                   <TableCell>
                     {channel.name}
                     {channel.icon_url && (
@@ -431,8 +509,8 @@ const EPG: React.FC = () => {
                   </TableCell>
                   <TableCell>{channel.language || 'Unknown'}</TableCell>
                   <TableCell>
-                    <IconButton 
-                      color="primary" 
+                    <IconButton
+                      color="primary"
                       title="View Programs"
                       onClick={() => navigate(`/epg/channels/${channel.id}`)}
                     >
@@ -446,7 +524,7 @@ const EPG: React.FC = () => {
               ))}
               {epgChannels && epgChannels.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
+                  <TableCell colSpan={6} align="center">
                     No EPG channels found
                   </TableCell>
                 </TableRow>
@@ -455,7 +533,7 @@ const EPG: React.FC = () => {
           </Table>
         </TableContainer>
       </TabPanel>
-      
+
       <TabPanel value={tabValue} index={2}>
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" gutterBottom>
@@ -475,7 +553,7 @@ const EPG: React.FC = () => {
                   margin="normal"
                 />
               </Grid>
-              
+
               <Grid item xs={12} md={6}>
                 <FormControlLabel
                   control={
@@ -490,7 +568,7 @@ const EPG: React.FC = () => {
                   sx={{ mt: 2 }}
                 />
               </Grid>
-              
+
               <Grid item xs={12}>
                 <Typography variant="subtitle1" gutterBottom>
                   Date Range
@@ -517,7 +595,7 @@ const EPG: React.FC = () => {
                   Including {xmlOptions.days_back} days of past programs and {xmlOptions.days_forward} days of future programs
                 </Typography>
               </Grid>
-              
+
               <Grid item xs={12}>
                 <Divider sx={{ my: 2 }} />
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
@@ -576,8 +654,8 @@ const EPG: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseSourceDialog}>Cancel</Button>
-          <Button 
-            onClick={handleSourceFormSubmit} 
+          <Button
+            onClick={handleSourceFormSubmit}
             variant="contained"
             color="primary"
             disabled={!sourceFormData.url || !sourceFormData.name}
@@ -587,9 +665,9 @@ const EPG: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={6000} 
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
         onClose={closeSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >

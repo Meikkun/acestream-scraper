@@ -8,10 +8,11 @@ import {
   GridSortModel,
   GridFilterModel,
 } from '@mui/x-data-grid';
-import { Chip, Box, IconButton, Tooltip, CircularProgress } from '@mui/material';
+import { Chip, Box, IconButton, Tooltip, CircularProgress, Snackbar, Alert } from '@mui/material';
 import { CheckCircle, Cancel, Refresh, Edit, Delete } from '@mui/icons-material';
 import { Channel, ChannelFilters } from '../services/channelService';
 import { formatDate } from '../utils/errorUtils';
+import ChannelActivityLogDialog from './ChannelActivityLogDialog';
 
 interface ChannelTableProps {
   channels: Channel[];
@@ -29,6 +30,7 @@ interface ChannelTableProps {
   onPageSizeChange: (pageSize: number) => void;
   onSortChange: (model: GridSortModel) => void;
   onSelectionChange?: (selectedIds: string[]) => void;
+  extraActions?: (row: Channel) => React.ReactNode;
 }
 
 /**
@@ -50,29 +52,73 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
   onPageSizeChange,
   onSortChange,
   onSelectionChange,
+  extraActions,
 }) => {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
+  const [activityLogOpen, setActivityLogOpen] = useState(false);
+  const [activityLogChannelId, setActivityLogChannelId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Column definitions
   const columns: GridColDef[] = [
     {
+      field: 'id',
+      headerName: 'Acestream ID',
+      minWidth: 260,
+      flex: 1.2,
+      filterable: true,
+      renderCell: (params: GridRenderCellParams<Channel>) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', fontFamily: 'monospace', fontSize: 13 }}>
+          {params.row.id}
+          <IconButton size="small" sx={{ ml: 1 }} onClick={() => navigator.clipboard.writeText(params.row.id)}>
+            <svg width="16" height="16" viewBox="0 0 24 24">
+              <path
+                fill="currentColor"
+                d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+              />
+            </svg>
+          </IconButton>
+        </Box>
+      ),
+    },
+    {
       field: 'name',
       headerName: 'Name',
       flex: 1,
-      minWidth: 200,
+      minWidth: 120, // was 200
+      editable: true,
+      filterable: true,
     },
     {
       field: 'group',
       headerName: 'Group',
-      flex: 0.5,
-      minWidth: 150,
+      flex: 0.7, // was 0.5
+      minWidth: 90, // was 150
+      editable: true,
+      filterable: true,
+    },
+    {
+      field: 'is_active',
+      headerName: 'Active',
+      width: 80, // was 100
+      type: 'boolean',
+      editable: true,
+      filterable: true,
+      renderCell: (params: GridRenderCellParams<Channel>) => (
+        <Chip
+          label={params.row.is_active ? 'Active' : 'Inactive'}
+          color={params.row.is_active ? 'success' : 'default'}
+          size="small"
+        />
+      ),
     },
     {
       field: 'status',
       headerName: 'Status',
-      width: 120,
+      width: 90, // was 120
+      filterable: true,
       renderCell: (params: GridRenderCellParams<Channel>) => (
         <Chip
           label={params.row.status}
@@ -84,7 +130,8 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
     {
       field: 'is_online',
       headerName: 'Online',
-      width: 100,
+      width: 80, // was 100
+      filterable: true,
       renderCell: (params: GridRenderCellParams<Channel>) => (
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           {params.row.is_online === null ? (
@@ -100,58 +147,58 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
     {
       field: 'last_checked',
       headerName: 'Last Checked',
-      width: 170,
+      width: 120, // was 170
       valueGetter: (params: GridValueGetterParams<Channel>) => formatDate(params.row.last_checked),
     },
     {
       field: 'added_at',
       headerName: 'Added',
-      width: 170,
+      width: 120, // was 170
       valueGetter: (params: GridValueGetterParams<Channel>) => formatDate(params.row.added_at),
     },
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 120,
+      width: 200,
       sortable: false,
-      renderCell: (params: GridRenderCellParams<Channel>) => (
-        <Box sx={{ display: 'flex' }}>
-          <Tooltip title="Check status">
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                onCheckStatus(params.row.id);
-              }}
-              disabled={checkingStatus[params.row.id]}
-            >
-              {checkingStatus[params.row.id] ? (
-                <CircularProgress size={20} />
-              ) : (
-                <Refresh fontSize="small" />
-              )}
-            </IconButton>
-          </Tooltip>
+      renderCell: (params: GridRenderCellParams) => (
+        <Box display="flex" gap={1}>
           <Tooltip title="Edit">
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(params.row);
-              }}
-            >
+            <IconButton size="small" onClick={() => onEdit(params.row)}>
               <Edit fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete">
+            <IconButton size="small" onClick={() => onDelete(params.row.id)}>
+              <Delete fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          {extraActions && extraActions(params.row)}
+        </Box>
+      ),
+    },
+    {
+      field: 'quickActions',
+      headerName: 'Quick Actions',
+      width: 120, // was 160
+      sortable: false,
+      renderCell: (params: GridRenderCellParams<Channel>) => (
+        <Box sx={{ display: 'flex' }}>
+          <Tooltip title={params.row.is_active ? 'Deactivate' : 'Activate'}>
             <IconButton
               size="small"
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation();
-                onDelete(params.row.id);
+                try {
+                  await import('../services/channelService').then(({ channelService }) =>
+                    channelService.updateChannel(params.row.id, { is_active: !params.row.is_active })
+                  );
+                } catch (err: any) {
+                  setError('Failed to update channel: ' + (err?.message || 'Unknown error'));
+                }
               }}
             >
-              <Delete fontSize="small" />
+              {params.row.is_active ? <Cancel color="error" /> : <CheckCircle color="success" />}
             </IconButton>
           </Tooltip>
         </Box>
@@ -164,53 +211,117 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
     setFilterModel(model);
     const newFilters: ChannelFilters = { ...filters };
 
-    // Convert grid filters to API filters
-    if (model.items.length > 0) {
-      model.items.forEach(item => {
-        if (item.field === 'name' && item.value) {
-          newFilters.search = String(item.value);
+    // Track if is_active is present
+    let hasIsActive = false;
+
+    // Convert grid filters to API filters (only supported fields)
+    model.items.forEach(item => {
+      if (item.field === 'name' && item.value) {
+        newFilters.search = String(item.value);
+      } else if (item.field === 'group' && item.value) {
+        newFilters.group = String(item.value);
+      } else if (item.field === 'is_active') {
+        if (item.value === true || item.value === 'true') {
+          newFilters.is_active = true;
+          hasIsActive = true;
+        } else if (item.value === false || item.value === 'false') {
+          newFilters.is_active = false;
+          hasIsActive = true;
+        } else {
+          delete newFilters.is_active;
+          delete newFilters.active_only;
         }
-        if (item.field === 'group' && item.value) {
-          newFilters.group = String(item.value);
-        }
-      });
-    } else {
-      // Reset search and group filters when cleared
-      delete newFilters.search;
-      delete newFilters.group;
+      } else if (item.field === 'is_online' && item.value !== undefined && item.value !== '') {
+        newFilters.is_online = item.value === 'true' || item.value === true;
+      } else if (item.field === 'country' && item.value) {
+        newFilters.country = String(item.value);
+      } else if (item.field === 'language' && item.value) {
+        newFilters.language = String(item.value);
+      }
+    });
+
+    // Remove filters if cleared
+    if (!model.items.some(item => item.field === 'name')) delete newFilters.search;
+    if (!model.items.some(item => item.field === 'group')) delete newFilters.group;
+    if (!model.items.some(item => item.field === 'is_online')) delete newFilters.is_online;
+    if (!model.items.some(item => item.field === 'country')) delete newFilters.country;
+    if (!model.items.some(item => item.field === 'language')) delete newFilters.language;
+    // If is_active is not present, ensure it's removed
+    if (!hasIsActive) {
+      delete newFilters.is_active;
+      delete newFilters.active_only;
     }
 
     onFilterChange(newFilters);
   };
 
+  const handleCellEditCommit = async (params: any) => {
+    const { id, field, value } = params;
+    try {
+      await import('../services/channelService').then(({ channelService }) =>
+        channelService.updateChannel(id, { [field]: value })
+      );
+    } catch (err: any) {
+      setError('Failed to update channel: ' + (err?.message || 'Unknown error'));
+    }
+  };
+
   return (
-    <DataGrid
-      rows={channels}
-      columns={columns}
-      loading={loading}
-      filterModel={filterModel}
-      onFilterModelChange={handleFilterModelChange}
-      checkboxSelection
-      onRowSelectionModelChange={(ids) => {
-        if (onSelectionChange) onSelectionChange(ids as string[]);
-      }}
-      onRowClick={(params) => onEdit(params.row)}
-      autoHeight
-      pagination
-      paginationMode="server"
-      rowCount={totalCount}
-      pageSizeOptions={[10, 25, 50, 100]}
-      paginationModel={{ page, pageSize }}
-      onPaginationModelChange={(model) => {
-        onPageChange(model.page);
-        onPageSizeChange(model.pageSize);
-      }}
-      sortingMode="server"
-      onSortModelChange={onSortChange}
-      slots={{
-        toolbar: GridToolbar,
-      }}
-    />
+    <>
+      {error && (
+        <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
+          <Alert onClose={() => setError(null)} severity="error" sx={{ width: '100%' }}>
+            {error}
+          </Alert>
+        </Snackbar>
+      )}
+      <DataGrid
+        rows={channels}
+        columns={columns}
+        loading={loading}
+        filterModel={filterModel}
+        onFilterModelChange={handleFilterModelChange}
+        checkboxSelection
+        onRowSelectionModelChange={(ids) => {
+          if (onSelectionChange) onSelectionChange(ids as string[]);
+        }}
+        onRowClick={(params) => onEdit(params.row)}
+        autoHeight
+        pagination
+        paginationMode="server"
+        rowCount={totalCount}
+        pageSizeOptions={[10, 25, 50, 100]}
+        paginationModel={{ page, pageSize }}
+        onPaginationModelChange={(model) => {
+          onPageChange(model.page);
+          onPageSizeChange(model.pageSize);
+        }}
+        sortingMode="server"
+        onSortModelChange={onSortChange}
+        processRowUpdate={async (newRow, oldRow) => {
+          try {
+            await import('../services/channelService').then(({ channelService }) =>
+              channelService.updateChannel(newRow.id, newRow)
+            );
+            return newRow;
+          } catch (err) {
+            // Optionally show error feedback
+            return oldRow;
+          }
+        }}
+        onCellEditStop={handleCellEditCommit}
+        slots={{
+          toolbar: GridToolbar,
+        }}
+      />
+      {activityLogChannelId && (
+        <ChannelActivityLogDialog
+          open={activityLogOpen}
+          onClose={() => setActivityLogOpen(false)}
+          channelId={activityLogChannelId}
+        />
+      )}
+    </>
   );
 };
 

@@ -29,10 +29,12 @@ class ActivityLogRepository:
         self.db.query(ActivityLog).filter(ActivityLog.timestamp < cutoff).delete()
         self.db.commit()
 
-    def get_activity_logs(self, since, type: Optional[str] = None, page: int = 1, page_size: int = 50) -> Dict[str, Any]:
+    def get_activity_logs(self, since, type: Optional[str] = None, channel_id: Optional[str] = None, page: int = 1, page_size: int = 50) -> Dict[str, Any]:
         query = self.db.query(ActivityLog)
         if type:
             query = query.filter(ActivityLog.type == type)
+        if channel_id:
+            query = query.filter(ActivityLog.channel_id == channel_id)
         if since:
             query = query.filter(ActivityLog.timestamp >= since)
         total = query.count()
@@ -59,8 +61,8 @@ class ActivityLogRepository:
             "user": entry.user,
         }
 
-    def create_activity_log(self, type: str, message: str, details: Optional[Dict[str, Any]] = None, user: Optional[str] = None) -> ActivityLog:
-        entry = ActivityLog(type=type, message=message, details=details, user=user)
+    def create_activity_log(self, type: str, message: str, details: Optional[Dict[str, Any]] = None, user: Optional[str] = None, channel_id: Optional[str] = None) -> ActivityLog:
+        entry = ActivityLog(type=type, message=message, details=details, user=user, channel_id=channel_id)
         self.db.add(entry)
         self.db.commit()
         self.db.refresh(entry)

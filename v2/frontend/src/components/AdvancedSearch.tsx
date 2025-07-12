@@ -7,6 +7,10 @@ export interface AdvancedSearchFilters {
   group?: string;
   status?: string;
   sort?: string;
+  country?: string;
+  language?: string;
+  is_active?: string;
+  is_online?: string;
 }
 
 interface AdvancedSearchProps {
@@ -125,6 +129,54 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ filters, onChange, cate
               {sortOptions.map(opt => (
                 <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
               ))}
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={2}>
+          <TextField
+            name="country"
+            label="Country"
+            value={local.country || ''}
+            onChange={handleInputChange}
+            fullWidth
+          />
+        </Grid>
+        <Grid item xs={12} sm={2}>
+          <TextField
+            name="language"
+            label="Language"
+            value={local.language || ''}
+            onChange={handleInputChange}
+            fullWidth
+          />
+        </Grid>
+        <Grid item xs={12} sm={2}>
+          <FormControl fullWidth>
+            <InputLabel>Active</InputLabel>
+            <Select
+              name="is_active"
+              value={local.is_active || ''}
+              label="Active"
+              onChange={handleSelectChange}
+            >
+              <MenuItem value="">Any</MenuItem>
+              <MenuItem value="true">Active</MenuItem>
+              <MenuItem value="false">Inactive</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={2}>
+          <FormControl fullWidth>
+            <InputLabel>Online</InputLabel>
+            <Select
+              name="is_online"
+              value={local.is_online || ''}
+              label="Online"
+              onChange={handleSelectChange}
+            >
+              <MenuItem value="">Any</MenuItem>
+              <MenuItem value="true">Online</MenuItem>
+              <MenuItem value="false">Offline</MenuItem>
             </Select>
           </FormControl>
         </Grid>

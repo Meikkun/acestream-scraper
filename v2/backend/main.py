@@ -18,6 +18,8 @@ from app.tasks.channel_status_task import run_channel_status_task
 
 # Setup logging before anything else
 setup_logging()
+import logging
+logging.getLogger().warning("[MAIN] Root logger active at startup")
 
 # Initialize database on startup
 def initialize_database():

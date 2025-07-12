@@ -41,7 +41,8 @@ const NavBar: React.FC = () => {
   };
   const navItems: NavItem[] = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'Channels', icon: <TvIcon />, path: '/channels' },
+    { text: 'Acestream Channels', icon: <TvIcon />, path: '/acestream-channels' },
+    { text: 'TV Channels', icon: <TvIcon />, path: '/tv-channels' },
     { text: 'Scraper', icon: <FindInPageIcon />, path: '/scraper' },
     { text: 'Search', icon: <SearchIcon />, path: '/search' },
     { text: 'Playlist', icon: <PlayArrowIcon />, path: '/playlist' },

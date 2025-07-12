@@ -69,7 +69,7 @@ const ChannelDetail: React.FC = () => {
   const updateChannel = useUpdateChannel(id || '');
   const deleteChannel = useDeleteChannel();
   const checkStatus = useCheckChannelStatus(id || '');
-  const { data: tvChannels = [] } = useAllTVChannels();
+  const { data: tvChannels } = useAllTVChannels();
 
   // Set form data when channel data is loaded
   useEffect(() => {
@@ -447,7 +447,7 @@ const ChannelDetail: React.FC = () => {
                     <MenuItem value="">
                       <em>None</em>
                     </MenuItem>
-                    {tvChannels.map((tvChannel: any) => (
+                    {(tvChannels?.items || []).map((tvChannel: any) => (
                       <MenuItem key={tvChannel.id} value={tvChannel.id.toString()}>
                         {tvChannel.name}
                       </MenuItem>

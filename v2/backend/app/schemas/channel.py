@@ -4,12 +4,13 @@ Pydantic schemas for channel data
 from pydantic import BaseModel, Field, HttpUrl
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+import uuid
 
 
 class ChannelBase(BaseModel):
     """Base model for channel data"""
-    id: str  # GUID string, not integer
-    name: str
+    id: Optional[str] = None  # GUID string, not integer
+    name: str = Field(..., min_length=1)
 
 
 class ChannelCreate(ChannelBase):
@@ -111,3 +112,9 @@ class ChannelStatusCheck(BaseModel):
     online_count: int
     offline_count: int
     status_details: Dict[str, Any]
+
+
+class ChannelListResponse(BaseModel):
+    """Schema for paginated channel results"""
+    items: List[ChannelResponse]
+    total: int

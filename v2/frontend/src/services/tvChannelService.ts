@@ -1,13 +1,13 @@
 import { TVChannel, TVChannelCreate, TVChannelUpdate, BatchAssignmentRequest, BatchAssignmentResult } from '../types/tvChannelTypes';
 import apiClient from './apiClient';
 
-const BASE_URL = '/api/v1/tv-channels';
+const BASE_URL = '/v1/tv-channels';
 
 export const tvChannelService = {
   /**
    * Get all TV channels
    */
-  getAll: async (skip = 0, limit = 100): Promise<TVChannel[]> => {
+  getAll: async (skip = 0, limit = 100): Promise<{ items: TVChannel[]; total: number }> => {
     const response = await apiClient.get(BASE_URL, {
       params: { skip, limit }
     });
@@ -57,8 +57,9 @@ export const tvChannelService = {
    * Associate an acestream channel with a TV channel
    */
   associateAcestream: async (tvChannelId: number, aceStreamId: string): Promise<any> => {
-    const response = await apiClient.post(`${BASE_URL}/${tvChannelId}/acestreams`, null, {
-      params: { acestream_id: aceStreamId }
+    // Use POST body for acestream_channel_id for backend compatibility
+    const response = await apiClient.post(`${BASE_URL}/${tvChannelId}/acestreams`, {
+      acestream_channel_id: aceStreamId
     });
     return response.data;
   },

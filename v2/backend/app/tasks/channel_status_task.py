@@ -18,7 +18,6 @@ def run_channel_status_task():
         async def check_all():
             for channel in channels:
                 result = await service.check_channel_status(channel)
-                logger.info(f"Checked channel {channel.id}: {result.get('status', 'unknown')}")
         asyncio.run(check_all())
     except Exception as e:
         logging.getLogger("channel_status_task").error(f"Channel status task failed: {e}")

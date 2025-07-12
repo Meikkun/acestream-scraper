@@ -66,7 +66,7 @@ export const configService = {
    * Update the Acestream Engine URL
    */
   updateAceEngineUrl: async (aceEngineUrl: string): Promise<void> => {
-    await apiClient.put(`${BASE_URL}/ace_engine_url`, { ace_engine_url: aceEngineUrl });
+    await apiClient.put(`${BASE_URL}/ace_engine_url`, { value: aceEngineUrl });
   },
 
   /**

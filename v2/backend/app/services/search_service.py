@@ -86,8 +86,6 @@ class SearchService:
                 params['category'] = category
 
             # Make request to Acestream engine
-            logger.debug(f"Searching Acestream with query: '{query}' (empty query will return all channels), UI page: {page}, API page: {api_page}, page_size: {page_size}, category: {category}")
-            logger.debug(f"Full search URL: {search_url}?query={query}&page={api_page}&page_size={page_size}" + (f"&category={category}" if category else ""))
 
             response = requests.get(search_url, params=params, timeout=10)
 
@@ -155,7 +153,6 @@ class SearchService:
                     }
 
                     query_description = query if query else "all channels"
-                    logger.info(f"Found {len(processed_results)} results for query '{query_description}'")
                     return result
                 except json.JSONDecodeError as json_err:
                     logger.error(f"Failed to parse JSON response: {json_err}")

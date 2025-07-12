@@ -1,50 +1,69 @@
 """
 API endpoints for channel management
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks, Body
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 import asyncio
+import uuid
+import csv
+from io import StringIO
 
 from app.config.database import get_db
 from app.models.models import AcestreamChannel, TVChannel
-from app.services.channel_service import ChannelService
+from app.services.acestreamchannel_service import AcestreamChannelService
 from app.services.channel_status_service import ChannelStatusService
 from app.schemas.channel import ChannelResponse, TVChannelResponse, ChannelCreate, ChannelUpdate, TVChannelCreate, TVChannelUpdate
 from app.schemas.channel_status import ChannelStatusResponse, BulkStatusCheckResponse, ChannelStatusSummary, StatusCheckRequest
+from app.schemas.channel import ChannelListResponse
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[ChannelResponse])
+@router.get("/", response_model=ChannelListResponse)
 async def get_channels(
     skip: int = Query(0, alias="skip"),
     limit: int = Query(100, alias="limit"),
     page: int = Query(None, alias="page"),
     page_size: int = Query(None, alias="page_size"),
-    active_only: bool = True,
+    active_only: Optional[bool] = None,  # Changed default to None
     search: Optional[str] = None,
     group: Optional[str] = None,
+    country: Optional[str] = None,
+    language: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    is_online: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
     """
     Get all channels with optional filtering.
     Supports both skip/limit and page/page_size parameters.
+    Returns paginated items and total count.
     """
     # Convert page/page_size to skip/limit if provided
     if page is not None and page_size is not None:
         skip = (page - 1) * page_size
         limit = page_size
 
-    service = ChannelService(db)
-    if group:
-        return service.get_filtered_channels(search=search, group=group)
-    return service.get_all_channels(
+    if is_active is not None:
+        active_only = False
+    if active_only is None:
+        active_only = False
+
+    service = AcestreamChannelService(db)
+    items, total = service.get_advanced_filtered_channels_with_total(
         skip=skip,
         limit=limit,
         active_only=active_only,
-        search=search
+        search=search,
+        group=group,
+        country=country,
+        language=language,
+        is_active=is_active,
+        is_online=is_online
     )
+    return {"items": items, "total": total}
 
 
 @router.get("/status_summary", response_model=ChannelStatusSummary)
@@ -61,7 +80,7 @@ async def get_channel_groups(db: Session = Depends(get_db)):
     """
     Get unique channel groups.
     """
-    service = ChannelService(db)
+    service = AcestreamChannelService(db)
     channels = service.get_all_channels(active_only=False)  # Get all channels to extract groups
     groups = list(set(channel.group for channel in channels if channel.group))
     return sorted(groups)
@@ -77,7 +96,7 @@ async def check_all_channels_status(
     """
     Check the online status of all active channels or specific channels.
     """
-    service = ChannelService(db)
+    service = AcestreamChannelService(db)
     status_service = ChannelStatusService(db)
 
     # Get channels to check
@@ -145,7 +164,7 @@ async def get_tv_channels(
     """
     Get all TV channels.
     """
-    service = ChannelService(db)
+    service = AcestreamChannelService(db)
     return service.get_all_tv_channels(skip=skip, limit=limit)
 
 
@@ -154,7 +173,7 @@ async def get_channel(channel_id: str, db: Session = Depends(get_db)):
     """
     Get a specific channel by ID.
     """
-    service = ChannelService(db)
+    service = AcestreamChannelService(db)
     channel = service.get_channel_by_id(channel_id)
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
@@ -166,7 +185,7 @@ async def check_channel_status(channel_id: str, db: Session = Depends(get_db)):
     """
     Check the online status of a specific channel via Acestream engine.
     """
-    service = ChannelService(db)
+    service = AcestreamChannelService(db)
     channel = service.get_channel_by_id(channel_id)
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
@@ -181,20 +200,21 @@ async def create_channel(channel: ChannelCreate, db: Session = Depends(get_db)):
     """
     Create a new Acestream channel. If a channel with the same ID exists, update it.
     """
-    service = ChannelService(db)
-    existing_channel = service.get_channel_by_id(channel.id)
+    service = AcestreamChannelService(db)
+    channel_id = channel.id or str(uuid.uuid4())
+    existing_channel = service.get_channel_by_id(channel_id)
 
     if existing_channel:
         # Update existing channel (upsert behavior for V1 compatibility)
         updated_channel = service.update_channel(
-            channel_id=channel.id,
+            channel_id=channel_id,
             updates=channel.model_dump(exclude_unset=True)
         )
         return updated_channel
     else:
         # Create new channel
         return service.create_channel(
-            channel_id=channel.id,
+            channel_id=channel_id,
             name=channel.name,
             source_url=channel.source_url,
             group=channel.group,
@@ -214,7 +234,7 @@ async def update_channel(
     """
     Update an existing channel.
     """
-    service = ChannelService(db)
+    service = AcestreamChannelService(db)
     existing_channel = service.get_channel_by_id(channel_id)
     if not existing_channel:
         raise HTTPException(status_code=404, detail="Channel not found")
@@ -231,7 +251,7 @@ async def delete_channel(channel_id: str, db: Session = Depends(get_db)):
     """
     Delete a channel.
     """
-    service = ChannelService(db)
+    service = AcestreamChannelService(db)
     existing_channel = service.get_channel_by_id(channel_id)
     if not existing_channel:
         raise HTTPException(status_code=404, detail="Channel not found")
@@ -240,22 +260,76 @@ async def delete_channel(channel_id: str, db: Session = Depends(get_db)):
     return None
 
 
-@router.post("/{channel_id}/check_status", response_model=ChannelStatusResponse)
-async def check_channel_status(channel_id: str, db: Session = Depends(get_db)):
+@router.post("/bulk_delete", status_code=status.HTTP_204_NO_CONTENT)
+async def bulk_delete_channels(
+    channel_ids: List[str] = Body(..., embed=True),
+    db: Session = Depends(get_db)
+):
     """
-    Check the online status of a specific channel via Acestream engine.
+    Delete multiple channels by IDs.
     """
-    service = ChannelService(db)
-    channel = service.get_channel_by_id(channel_id)
-    if not channel:
-        raise HTTPException(status_code=404, detail="Channel not found")
-
-    status_service = ChannelStatusService(db)
-    result = await status_service.check_channel_status(channel)
-    return result
+    service = AcestreamChannelService(db)
+    deleted = service.bulk_delete_channels(channel_ids)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="No channels deleted")
+    return None
 
 
+@router.put("/bulk_edit", response_model=List[ChannelResponse])
+async def bulk_edit_channels(
+    updates: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Update multiple channels by IDs and fields.
+    updates: {"channel_ids": [...], "fields": {...}}
+    """
+    service = AcestreamChannelService(db)
+    channel_ids = updates.get("channel_ids", [])
+    fields = updates.get("fields", {})
+    if not channel_ids or not fields:
+        raise HTTPException(status_code=400, detail="channel_ids and fields required")
+    updated = service.bulk_update_channels(channel_ids, fields)
+    return updated
 
+
+@router.post("/bulk_activate", response_model=List[ChannelResponse])
+async def bulk_activate_channels(
+    data: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Activate/deactivate multiple channels by IDs.
+    data: {"channel_ids": [...], "active": true/false}
+    """
+    service = AcestreamChannelService(db)
+    channel_ids = data.get("channel_ids", [])
+    active = data.get("active", True)
+    if not channel_ids:
+        raise HTTPException(status_code=400, detail="channel_ids required")
+    updated = service.bulk_activate_channels(channel_ids, active)
+    return updated
+
+
+@router.get("/export_csv")
+def export_channels_csv(db: Session = Depends(get_db)):
+    """
+    Export all channels as a CSV file.
+    """
+    service = AcestreamChannelService(db)
+    channels = service.get_all_channels(active_only=False)
+    output = StringIO()
+    writer = csv.writer(output)
+    # Write header
+    writer.writerow([
+        "id", "name", "source_url", "group", "logo", "tvg_id", "tvg_name", "is_online", "is_active", "last_seen"
+    ])
+    for ch in channels:
+        writer.writerow([
+            ch.id, ch.name, ch.source_url, ch.group, ch.logo, ch.tvg_id, ch.tvg_name, ch.is_online, getattr(ch, 'is_active', ''), getattr(ch, 'last_seen', '')
+        ])
+    output.seek(0)
+    return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=channels.csv"})
 
 
 async def _background_status_check(

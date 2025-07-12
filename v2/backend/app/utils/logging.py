@@ -26,11 +26,14 @@ def setup_logging():
     logging.getLogger('urllib3').setLevel(logging.WARNING)
     logging.getLogger('uvicorn').setLevel(logging.WARNING)
     logging.getLogger('sqlalchemy').setLevel(logging.WARNING)
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+    logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
 
     # If in debug mode, enable more verbose logging
     if os.environ.get('FASTAPI_DEBUG') == '1':
         root_logger.setLevel(logging.DEBUG)
         console.setLevel(logging.DEBUG)
-        logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+        # Do NOT enable SQLAlchemy engine SQL logs in debug mode
+        # logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
     return root_logger
