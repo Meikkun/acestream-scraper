@@ -44,42 +44,52 @@ def app():
     """Create application for the tests."""
     # Set testing environment
     os.environ['TESTING'] = '1'
-    
+
+    # Use a dedicated test database file
+    test_db_path = os.path.join(tempfile.gettempdir(), 'scraper_tests.db')
+    db_uri = f'sqlite:///{test_db_path}'
+
+    # Remove the test DB file if it exists (clean slate)
+    if os.path.exists(test_db_path):
+        os.remove(test_db_path)
+
     # Create base app with minimal configuration
     app = Flask(__name__)
     app.config.update({
-        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+        'SQLALCHEMY_DATABASE_URI': db_uri,
         'TESTING': True,
         'WTF_CSRF_ENABLED': False,
         'PRESERVE_CONTEXT_ON_EXCEPTION': False
     })
-    
+
     # Initialize database
     db.init_app(app)
-    
+
     # Create tables within app context
     with app.app_context():
         db.create_all()
-        
+
         # Initialize settings for testing
         from app.repositories import SettingsRepository
         settings_repo = SettingsRepository()
         settings_repo.set('setup_completed', 'True')
         db.session.commit()
-    
+
     # Now create the full application
     app = create_app('testing')
     app.config.update({
-        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+        'SQLALCHEMY_DATABASE_URI': db_uri,
         'TESTING': True,
         'WTF_CSRF_ENABLED': False,
         'PRESERVE_CONTEXT_ON_EXCEPTION': False
     })
-    
+
     yield app
-    
-    # Clean up environment
+
+    # Clean up environment and test DB file
     os.environ.pop('TESTING', None)
+    if os.path.exists(test_db_path):
+        os.remove(test_db_path)
 
 @pytest.fixture
 def client(app, db_session):
@@ -102,12 +112,12 @@ def db_session(app):
     with app.app_context():
         # Explicitly create tables
         db.create_all()
-        
+
         # Log created tables
         print(f"Created tables: {db.engine.table_names()}")
-        
+
         yield db.session
-        
+
         # Clean up
         db.session.close()
         db.drop_all()
@@ -116,7 +126,7 @@ def db_session(app):
 def reset_db(db_session):
     """Reset database after each test."""
     yield
-    # Clear database tables after test 
+    # Clear database tables after test
     meta = db.metadata
     for table in reversed(meta.sorted_tables):
         db_session.execute(table.delete())
@@ -127,7 +137,7 @@ def mock_settings_repo():
     """Create a mock settings repository."""
     repo = MagicMock()
     repo.is_setup_completed.return_value = True
-    
+
     # Mock the get method with specific returns for different keys
     def mock_get(key, default=None):
         settings = {
@@ -136,7 +146,7 @@ def mock_settings_repo():
             "rescrape_interval": 24
         }
         return settings.get(key, default)
-    
+
     repo.get.side_effect = mock_get
     return repo
 
@@ -145,19 +155,19 @@ def config():
     """Provide a properly configured Config instance for tests."""
     # Create fresh config instance
     config = Config()
-    
+
     # Set test database path to a temporary file
     config.config_path = Path(tempfile.gettempdir())
     config.database_path = config.config_path / 'test_acestream.db'
-    
+
     # Ensure required attributes exist
     config.base_url = "http://localhost:6878/ace/getstream?id="
     config.ace_engine_url = "http://localhost:6878"
     config.rescrape_interval = 24
-    
+
     # Set TESTING environment variable for in-memory database
     os.environ['TESTING'] = 'True'
-    
+
     return config
 
 @pytest.fixture(autouse=True)
@@ -165,7 +175,7 @@ def override_setup_check(monkeypatch):
     """Override setup check to always return True for tests."""
     def is_initialized(self):  # Add 'self' parameter here
         return True
-        
+
     monkeypatch.setattr('app.utils.config.Config.is_initialized', is_initialized)
 
 @pytest.fixture
@@ -183,30 +193,30 @@ def mock_task_manager(monkeypatch):
     mock_manager = MagicMock()
     mock_manager.process_url = AsyncMock()
     mock_manager.add_task = AsyncMock()
-    
+
     # Patch the controller level
     monkeypatch.setattr('app.api.controllers.urls_controller.task_manager', mock_manager)
-    
+
     return mock_manager
 
 @pytest.fixture(autouse=True)
 def setup_task_manager(app, monkeypatch):
     """Set up task manager for testing."""
     from app.tasks.manager import TaskManager
-    
+
     # Create a task manager instance for testing
     task_manager = TaskManager()
     task_manager.init_app(app)
-    
+
     # Mock the process_url method to be synchronous for testing
     async def mock_process_url(url):
         return True
-    
+
     task_manager.process_url = mock_process_url
-    
+
     # Make this task manager instance available to the app
     monkeypatch.setattr('app.api.controllers.urls_controller.task_manager', task_manager)
-    
+
     return task_manager
 
 # Fix the clean_app_contexts fixture
@@ -223,18 +233,18 @@ def setup_test_channels(db_session):
     """Set up test channels for tests."""
     # Create test channels with correct attribute name (id not channel_id)
     ch1 = AcestreamChannel(
-        id='123', 
-        name='Sports Channel', 
-        group='Sports', 
-        logo='sports.png', 
+        id='123',
+        name='Sports Channel',
+        group='Sports',
+        logo='sports.png',
         is_online=True,
         status='active'
     )
     ch2 = AcestreamChannel(
-        id='456', 
-        name='News Channel', 
-        group='News', 
-        logo='news.png', 
+        id='456',
+        name='News Channel',
+        group='News',
+        logo='news.png',
         is_online=True,
         status='active'
     )

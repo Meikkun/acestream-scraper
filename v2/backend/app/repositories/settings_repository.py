@@ -31,7 +31,6 @@ class SettingsRepository:
         try:
             setting = self.db.query(Setting).filter(Setting.key == key).first()
             if setting:
-                logger.info(f"Retrieved setting {key} = {setting.value}")
                 return setting.value
             logger.info(f"Setting {key} not found, using default")
             # Use class default if available

@@ -2,6 +2,7 @@
 Service for managing scraping operations
 """
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Tuple, Dict, Any, Optional
 import logging
 
@@ -97,9 +98,26 @@ class ScraperService:
             return [], f"Error: {str(e)}"
 
     def get_scraped_urls(self, skip: int = 0, limit: int = 100) -> List[URLResponse]:
-        """Get list of URLs that have been scraped"""
+        """Get list of URLs that have been scraped, including channels_found count"""
         urls = self.db.query(ScrapedURL).offset(skip).limit(limit).all()
-        return [URLResponse.model_validate(url) for url in urls]
+        # Get all source_urls in one query for efficiency
+        url_to_count = {}
+        if urls:
+            url_list = [u.url for u in urls]
+            counts = (
+                self.db.query(AcestreamChannel.source_url, func.count(AcestreamChannel.id))
+                .filter(AcestreamChannel.source_url.in_(url_list))
+                .group_by(AcestreamChannel.source_url)
+                .all()
+            )
+            url_to_count = {url: count for url, count in counts}
+        responses = []
+        for url in urls:
+            channels_found = url_to_count.get(url.url, 0)
+            data = url.__dict__.copy()
+            data['channels_found'] = channels_found
+            responses.append(URLResponse(**data))
+        return responses
 
     def get_scraped_url(self, url_id: int) -> Optional[URLResponse]:
         """Get a specific scraped URL by ID"""

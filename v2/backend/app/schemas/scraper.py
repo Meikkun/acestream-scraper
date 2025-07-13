@@ -41,6 +41,9 @@ class URLResponse(BaseModel):
     enabled: bool = True
     added_at: datetime
 
+
+    channels_found: int = 0  # Number of acestream channels found for this URL
+
     class Config:
         from_attributes = True
 

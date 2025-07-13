@@ -23,7 +23,6 @@ class AcestreamStatusService:
         if not self.engine_url.startswith('http'):
             self.engine_url = f"http://{self.engine_url}"
         self.engine_url = self.engine_url.rstrip('/')
-        logger.debug(f"Acestream Engine URL set to: {self.engine_url} (internal engine: {self.is_internal_engine})")
 
     def is_enabled(self) -> bool:
         return os.environ.get('ENABLE_ACESTREAM_ENGINE', 'false').lower() == 'true'

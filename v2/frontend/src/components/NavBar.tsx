@@ -41,14 +41,15 @@ const NavBar: React.FC = () => {
   };
   const navItems: NavItem[] = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'Acestream Channels', icon: <TvIcon />, path: '/acestream-channels' },
-    { text: 'TV Channels', icon: <TvIcon />, path: '/tv-channels' },
+
     { text: 'Scraper', icon: <FindInPageIcon />, path: '/scraper' },
-    { text: 'Search', icon: <SearchIcon />, path: '/search' },
+    { text: 'Acestream Search', icon: <SearchIcon />, path: '/search' },
+    { text: 'Acestream Channels', icon: <TvIcon />, path: '/acestream-channels' },
+    { text: 'EPG Sources', icon: <EventNoteIcon />, path: '/epg' },
+    { text: 'TV Channels', icon: <TvIcon />, path: '/tv-channels' },
     { text: 'Playlist', icon: <PlayArrowIcon />, path: '/playlist' },
-    { text: 'EPG', icon: <EventNoteIcon />, path: '/epg' },
-    { text: 'WARP', icon: <CloudIcon />, path: '/warp' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+    { text: 'WARP Status', icon: <CloudIcon />, path: '/warp' },
     { text: 'Health', icon: <HealthAndSafetyIcon />, path: '/health' },
   ];
 
