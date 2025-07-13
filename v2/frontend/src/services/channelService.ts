@@ -1,12 +1,12 @@
 /**
- * Channel API service
+ * Acestream Channel API service
  */
 import apiClient from './apiClient';
 
 /**
  * Channel model interface
  */
-export interface Channel {
+export interface AcestreamChannel {
   id: string;
   name: string;
   last_seen: string;
@@ -29,9 +29,10 @@ export interface Channel {
 }
 
 /**
- * Channel creation DTO
+ * Acestream Channel creation DTO
  */
-export interface CreateChannelDTO {
+export interface CreateAcestreamChannelDTO {
+  id: string;
   name: string;
   source_url?: string;
   group?: string;
@@ -44,9 +45,9 @@ export interface CreateChannelDTO {
 }
 
 /**
- * Channel update DTO
+ * Acestream Channel update DTO
  */
-export interface UpdateChannelDTO {
+export interface UpdateAcestreamChannelDTO {
   name?: string;
   source_url?: string;
   group?: string;
@@ -61,14 +62,14 @@ export interface UpdateChannelDTO {
 }
 
 /**
- * Channel filter parameters
+ * Acestream Channel filter parameters
  */
-export interface ChannelFilters {
+export interface AcestreamChannelFilters {
   search?: string;
   group?: string;
   is_active?: boolean;
   is_online?: boolean;
-  id?: string; // Added for Acestream ID filter
+  id?: string; // Acestream ID filter
   country?: string;
   language?: string;
   page?: number;
@@ -79,11 +80,11 @@ export interface ChannelFilters {
 /**
  * Channel API service
  */
-const channelService = {
+const acestreamChannelService = {
   /**
    * Get all channels with optional filtering
    */
-  getChannels: async (filters?: ChannelFilters): Promise<Channel[]> => {
+  getAcestreamChannels: async (filters?: AcestreamChannelFilters): Promise<AcestreamChannel[]> => {
     // Convert string values for is_online and is_active to booleans if present
     const params = { ...filters };
     if (typeof params.is_online === 'string') {
@@ -99,110 +100,101 @@ const channelService = {
       delete params.is_active;
       delete params.active_only;
     }
-    const { data } = await apiClient.get('/v1/channels', { params });
+    const { data } = await apiClient.get('/v1/acestream-channels', { params });
     return data;
   },
 
   /**
    * Get a channel by ID
    */
-  getChannel: async (id: string): Promise<Channel> => {
-    const { data } = await apiClient.get(`/v1/channels/${id}`);
+  getAcestreamChannel: async (id: string): Promise<AcestreamChannel> => {
+    const { data } = await apiClient.get(`/v1/acestream-channels/${id}`);
     return data;
   },
 
   /**
    * Create a new channel
    */
-  createChannel: async (channelData: CreateChannelDTO): Promise<Channel> => {
-    const { data } = await apiClient.post('/v1/channels', channelData);
+  createAcestreamChannel: async (channelData: CreateAcestreamChannelDTO): Promise<AcestreamChannel> => {
+    const { data } = await apiClient.post('/v1/acestream-channels', channelData);
     return data;
   },
 
   /**
    * Update a channel
    */
-  updateChannel: async (id: string, channelData: UpdateChannelDTO): Promise<Channel> => {
-    const { data } = await apiClient.put(`/v1/channels/${id}`, channelData);
+  updateAcestreamChannel: async (id: string, channelData: UpdateAcestreamChannelDTO): Promise<AcestreamChannel> => {
+    const { data } = await apiClient.put(`/v1/acestream-channels/${id}`, channelData);
     return data;
   },
 
   /**
    * Delete a channel
    */
-  deleteChannel: async (id: string): Promise<void> => {
-    await apiClient.delete(`/v1/channels/${id}`);
+  deleteAcestreamChannel: async (id: string): Promise<void> => {
+    await apiClient.delete(`/v1/acestream-channels/${id}`);
   },
 
   /**
    * Check channel status
    */
-  checkChannelStatus: async (id: string): Promise<Channel> => {
-    const { data } = await apiClient.post(`/v1/channels/${id}/check_status`);
+  checkAcestreamChannelStatus: async (id: string): Promise<AcestreamChannel> => {
+    const { data } = await apiClient.post(`/v1/acestream-channels/${id}/check_status`);
     return data;
   },
 
   /**
    * Get all unique channel categories
    */
-  getCategories: async () => {
-    try {
-      const { data: categories } = await apiClient.get('/v1/channels/categories');
-      return categories as string[];
-    } catch {
-      const { data: channels } = await apiClient.get('/v1/channels');
-      const categories = Array.from(new Set((channels || []).map((c: any) => String(c.category)).filter((v: string) => !!v)));
-      return categories.map(String); // Ensure string[]
-    }
-  },
+  // No categories endpoint for acestream channels
 
   /**
    * Get all unique channel groups
    */
   getGroups: async (): Promise<string[]> => {
-    const { data } = await apiClient.get('/v1/channels/groups');
+    const { data } = await apiClient.get('/v1/acestream-channels/groups');
     return data;
   },
 
   /**
    * Bulk delete channels
    */
-  bulkDeleteChannels: async (ids: string[]): Promise<void> => {
-    await apiClient.post('/v1/channels/bulk_delete', { channel_ids: ids });
+  bulkDeleteAcestreamChannels: async (ids: string[]): Promise<void> => {
+    await apiClient.post('/v1/acestream-channels/bulk_delete', { acestreamchannel_ids: ids });
   },
 
   /**
    * Bulk edit channels
    */
-  bulkEditChannels: async (ids: string[], fields: any): Promise<any[]> => {
-    const { data } = await apiClient.put('/v1/channels/bulk_edit', { channel_ids: ids, fields });
+  bulkEditAcestreamChannels: async (ids: string[], fields: any): Promise<any[]> => {
+    const { data } = await apiClient.put('/v1/acestream-channels/bulk_edit', { acestreamchannel_ids: ids, fields });
     return data;
   },
 
   /**
    * Bulk activate/deactivate channels
    */
-  bulkActivateChannels: async (ids: string[], active: boolean): Promise<any[]> => {
-    const { data } = await apiClient.post('/v1/channels/bulk_activate', { channel_ids: ids, active });
+  bulkActivateAcestreamChannels: async (ids: string[], active: boolean): Promise<any[]> => {
+    const { data } = await apiClient.post('/v1/acestream-channels/bulk_activate', { acestreamchannel_ids: ids, active });
     return data;
   },
 
   /**
    * Export all channels as CSV
    */
-  exportChannelsCSV: async (): Promise<Blob> => {
-    const response = await apiClient.get('/v1/channels/export_csv', { responseType: 'blob' });
+  exportAcestreamChannelsCSV: async (): Promise<Blob> => {
+    const response = await apiClient.get('/v1/acestream-channels/export_csv', { responseType: 'blob' });
     return response.data;
   },
 
   /**
    * Get activity log for a specific channel
    */
-  getChannelActivityLog: async (
-    channelId: string,
+  getAcestreamChannelActivityLog: async (
+    acestreamChannelId: string,
     params?: { days?: number; type?: string; page?: number; page_size?: number }
   ): Promise<any> => {
-    const { data } = await apiClient.get(`/v1/activity/channels/${channelId}/activity_log`, { params });
+    const { data } = await apiClient.get(`/v1/activity/acestream-channels/${acestreamChannelId}/activity_log`, { params });
     return data;
   },
 
@@ -216,5 +208,5 @@ const channelService = {
   },
 };
 
-export { channelService };
-export default channelService;
+export { acestreamChannelService };
+export default acestreamChannelService;

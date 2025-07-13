@@ -42,7 +42,7 @@ import {
 import { useTVChannel, useTVChannelAcestreams, useAssociateAcestream, useRemoveAcestreamAssociation, useUpdateTVChannel } from '../hooks/useTVChannels';
 import { AcestreamChannel } from '../types/channelTypes';
 import { Link as RouterLink } from 'react-router-dom';
-import { useChannels } from '../hooks/useChannels';
+import { useAcestreamChannels } from '../hooks/useChannels';
 import '../styles/TVChannelDetail.css';
 
 const TVChannelDetail: React.FC = () => {
@@ -60,7 +60,7 @@ const TVChannelDetail: React.FC = () => {
   const [aceStreamId, setAceStreamId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAcestreams, setSelectedAcestreams] = useState<string[]>([]);
-  const { data: acestreamCandidates, isLoading: isLoadingAcestreamCandidates } = useChannels(
+  const { data: acestreamCandidates, isLoading: isLoadingAcestreamCandidates } = useAcestreamChannels(
     searchTerm ? { search: searchTerm } : {},
     { staleTime: 1000 * 60 }
   );

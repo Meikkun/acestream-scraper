@@ -10,27 +10,26 @@ import {
 } from '@mui/x-data-grid';
 import { Chip, Box, IconButton, Tooltip, CircularProgress, Snackbar, Alert } from '@mui/material';
 import { CheckCircle, Cancel, Refresh, Edit, Delete, PowerSettingsNew, Block, HelpOutline } from '@mui/icons-material';
-import { Channel, ChannelFilters } from '../services/channelService';
+import { AcestreamChannel, AcestreamChannelFilters, acestreamChannelService } from '../services/channelService';
 import { formatDate } from '../utils/errorUtils';
 import ChannelActivityLogDialog from './ChannelActivityLogDialog';
 
 interface ChannelTableProps {
-  channels: Channel[];
+  channels: AcestreamChannel[];
   loading: boolean;
   onCheckStatus: (id: string) => void;
-  onEdit: (channel: Channel) => void;
+  onEdit: (channel: AcestreamChannel) => void;
   onDelete: (id: string) => void;
   checkingStatus: Record<string, boolean>;
-  filters: ChannelFilters;
-  onFilterChange: (filters: ChannelFilters) => void;
+  filters: AcestreamChannelFilters;
+  onFilterChange: (filters: AcestreamChannelFilters) => void;
   totalCount: number;
   page: number;
   pageSize: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
+  onPaginationModelChange: (model: { page: number; pageSize: number }) => void;
   onSortChange: (model: GridSortModel) => void;
   onSelectionChange?: (selectedIds: string[]) => void;
-  extraActions?: (row: Channel) => React.ReactNode;
+  extraActions?: (row: AcestreamChannel) => React.ReactNode;
   onActionComplete?: () => void;
 }
 
@@ -49,9 +48,8 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
   totalCount,
   page,
   pageSize,
-  onPageChange,
-  onPageSizeChange,
   onSortChange,
+  onPaginationModelChange,
   onSelectionChange,
   extraActions,
   onActionComplete,
@@ -71,7 +69,7 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
       minWidth: 260,
       flex: 1.2,
       filterable: true,
-      renderCell: (params: GridRenderCellParams<Channel>) => (
+      renderCell: (params: GridRenderCellParams<AcestreamChannel>) => (
         <Box sx={{ display: 'flex', alignItems: 'center', fontFamily: 'monospace', fontSize: 13 }}>
           {params.row.id}
           <IconButton size="small" sx={{ ml: 1 }} onClick={() => navigator.clipboard.writeText(params.row.id)}>
@@ -108,7 +106,7 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
       type: 'boolean',
       editable: true,
       filterable: true,
-      renderCell: (params: GridRenderCellParams<Channel>) => (
+      renderCell: (params: GridRenderCellParams<AcestreamChannel>) => (
         <Chip
           label={params.row.is_active ? 'Active' : 'Inactive'}
           color={params.row.is_active ? 'success' : 'default'}
@@ -121,7 +119,7 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
       headerName: 'Online',
       width: 80, // was 100
       filterable: true,
-      renderCell: (params: GridRenderCellParams<Channel>) => (
+      renderCell: (params: GridRenderCellParams<AcestreamChannel>) => (
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           {params.row.is_online === null ? (
             <Chip label="Unknown" size="small" color="default" />
@@ -137,13 +135,13 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
       field: 'last_checked',
       headerName: 'Last Checked',
       width: 120, // was 170
-      valueGetter: (params: GridValueGetterParams<Channel>) => formatDate(params.row.last_checked),
+      valueGetter: (params: GridValueGetterParams<AcestreamChannel>) => formatDate(params.row.last_checked),
     },
     {
       field: 'last_seen',
       headerName: 'Last Scraped',
       width: 120, // was 170
-      valueGetter: (params: GridValueGetterParams<Channel>) => formatDate(params.row.last_seen),
+      valueGetter: (params: GridValueGetterParams<AcestreamChannel>) => formatDate(params.row.last_seen),
     },
     {
       field: 'actions',
@@ -168,9 +166,7 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
               onClick={async (e) => {
                 e.stopPropagation();
                 try {
-                  await import('../services/channelService').then(({ channelService }) =>
-                    channelService.updateChannel(params.row.id, { is_active: !params.row.is_active })
-                  );
+                  await acestreamChannelService.updateAcestreamChannel(params.row.id, { is_active: !params.row.is_active });
                   onActionComplete && onActionComplete();
                 } catch (err: any) {
                   setError('Failed to update channel: ' + (err?.message || 'Unknown error'));
@@ -186,7 +182,7 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
               onClick={async (e) => {
                 e.stopPropagation();
                 try {
-                  const resp = await fetch(`/api/v1/channels/${params.row.id}/check_status`, { method: 'POST' });
+                  const resp = await fetch(`/api/v1/acestream-channels/${params.row.id}/check_status`, { method: 'POST' });
                   if (!resp.ok) throw new Error('Failed to check status');
                   const data = await resp.json();
                   setError(`Status: ${data.status || data.message || 'Unknown'}`);
@@ -208,7 +204,7 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
   // Handle filter changes
   const handleFilterModelChange = (model: GridFilterModel) => {
     setFilterModel(model);
-    const newFilters: ChannelFilters = { ...filters };
+    const newFilters: AcestreamChannelFilters = { ...filters };
 
     // Track if is_active is present
     let hasIsActive = false;
@@ -257,9 +253,7 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
   const handleCellEditCommit = async (params: any) => {
     const { id, field, value } = params;
     try {
-      await import('../services/channelService').then(({ channelService }) =>
-        channelService.updateChannel(id, { [field]: value })
-      );
+      await acestreamChannelService.updateAcestreamChannel(id, { [field]: value });
     } catch (err: any) {
       setError('Failed to update channel: ' + (err?.message || 'Unknown error'));
     }
@@ -291,17 +285,12 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
         rowCount={totalCount}
         pageSizeOptions={[10, 25, 50, 100]}
         paginationModel={{ page, pageSize }}
-        onPaginationModelChange={(model) => {
-          onPageChange(model.page);
-          onPageSizeChange(model.pageSize);
-        }}
+        onPaginationModelChange={onPaginationModelChange}
         sortingMode="server"
         onSortModelChange={onSortChange}
         processRowUpdate={async (newRow, oldRow) => {
           try {
-            await import('../services/channelService').then(({ channelService }) =>
-              channelService.updateChannel(newRow.id, newRow)
-            );
+            await acestreamChannelService.updateAcestreamChannel(newRow.id, newRow);
             return newRow;
           } catch (err) {
             // Optionally show error feedback

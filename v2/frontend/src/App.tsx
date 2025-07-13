@@ -40,9 +40,6 @@ const App: React.FC = () => {
           <Route path="/search" element={<Search />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/health" element={<Health />} />
-          {/* Redirect legacy /channels to /acestream-channels */}
-          <Route path="/channels" element={<AcestreamChannels />} />
-          <Route path="/channels/:id" element={<AcestreamChannels />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Box>

@@ -7,8 +7,8 @@ import { Typography, Box, Button, Alert, Paper, AppBar, Toolbar, Link, useTheme,
 import { Add, Refresh } from '@mui/icons-material';
 import { GridSortModel } from '@mui/x-data-grid';
 import ChannelTable from '../components/ChannelTable';
-import { useChannels, useCheckChannelStatus, useDeleteChannel } from '../hooks/useChannels';
-import { ChannelFilters, channelService } from '../services/channelService';
+import { useAcestreamChannels, useDeleteAcestreamChannel } from '../hooks/useChannels';
+import { AcestreamChannelFilters, acestreamChannelService } from '../services/channelService';
 import { getErrorMessage } from '../utils/errorUtils';
 import BulkOperations from '../components/BulkOperations';
 import AdvancedSearch, { AdvancedSearchFilters } from '../components/AdvancedSearch';
@@ -29,7 +29,13 @@ const AcestreamChannels: React.FC = () => {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
-  const [filters, setFilters] = useState<ChannelFilters>({});
+  const [filters, setFilters] = useState<AcestreamChannelFilters>({});
+
+  // Debug logging for pagination and filter state
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG] page:', page, 'pageSize:', pageSize, 'filters:', filters, 'sortModel:', sortModel);
+  }, [page, pageSize, filters, sortModel]);
   const [checkingStatus, setCheckingStatus] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -53,19 +59,34 @@ const AcestreamChannels: React.FC = () => {
 
   // Queries and mutations (Acestream channels only)
   const {
-    data: channelsRaw = [],
+    data: channelsRaw = { items: [], total: 0 },
     isLoading,
     refetch,
     error: fetchError
-  } = useChannels({
+  } = useAcestreamChannels({
     ...filters,
     page: page + 1,
     page_size: pageSize
-  });
-  const channels = isPaginatedChannels(channelsRaw) ? channelsRaw.items : Array.isArray(channelsRaw) ? channelsRaw : [];
-  const totalCount = isPaginatedChannels(channelsRaw) ? channelsRaw.total : Array.isArray(channelsRaw) ? channelsRaw.length : 0;
+  }, { keepPreviousData: true });
+  const paginated = channelsRaw as { items: any[]; total: number };
+  const channels = paginated.items;
+  const totalCount = paginated.total;
 
-  const deleteChannel = useDeleteChannel();
+  // Debug: log channelsRaw, channels.length and totalCount
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG] channelsRaw:', channelsRaw);
+    console.log('[DEBUG] channels.length:', channels.length, 'totalCount:', totalCount, 'page:', page, 'pageSize:', pageSize);
+  }, [channelsRaw, channels, totalCount, page, pageSize]);
+
+  // If the current page is out of range, reset to 0
+  useEffect(() => {
+    if (!isLoading && page > 0 && page * pageSize >= totalCount) {
+      setPage(0);
+    }
+  }, [isLoading, page, pageSize, totalCount]);
+
+  const deleteChannel = useDeleteAcestreamChannel();
 
   // Fetch TV channels for assignment
   const { data: tvChannels } = useAllTVChannels(0, 100);
@@ -73,7 +94,7 @@ const AcestreamChannels: React.FC = () => {
   // Handler for check status
   const handleCheckStatus = useCallback((id: string) => {
     setCheckingStatus(prev => ({ ...prev, [id]: true }));
-    channelService.checkChannelStatus(id)
+    acestreamChannelService.checkAcestreamChannelStatus(id)
       .then(() => {
         setCheckingStatus(prev => ({ ...prev, [id]: false }));
         refetch();
@@ -90,7 +111,7 @@ const AcestreamChannels: React.FC = () => {
     setQuickEditOpen(true);
   };
   const handleQuickEditSave = async (updates: any) => {
-    await channelService.updateChannel(quickEditChannel.id, updates);
+    await acestreamChannelService.updateAcestreamChannel(quickEditChannel.id, updates);
     setQuickEditOpen(false);
     setQuickEditChannel(null);
     refetch();
@@ -107,7 +128,7 @@ const AcestreamChannels: React.FC = () => {
     setAddDialogOpen(true);
   };
   const handleAddChannelSave = async (values: any) => {
-    await channelService.createChannel(values);
+    await acestreamChannelService.createAcestreamChannel(values);
     setAddDialogOpen(false);
     setQuickEditChannel(null);
     refetch();
@@ -140,12 +161,12 @@ const AcestreamChannels: React.FC = () => {
     setAssignError(null);
     try {
       // For each acestream channel, call backend assignment endpoint
-      await Promise.all(assignTargetIds.map(id => channelService.assignToTVChannel(id, tvChannelId)));
+      await Promise.all(assignTargetIds.map(id => acestreamChannelService.assignToTVChannel(id, tvChannelId)));
       // Fetch the assigned TV channel info
       const tv = (tvChannels?.items || []).find((t: any) => t.id === tvChannelId);
       if (tv) {
         // For each acestream, update its fields with TV channel info (tvg_id, tvg_name, group, logo, etc.)
-        await Promise.all(assignTargetIds.map(id => channelService.updateChannel(id, {
+        await Promise.all(assignTargetIds.map(id => acestreamChannelService.updateAcestreamChannel(id, {
           tvg_id: tv.epg_id || '',
           tvg_name: tv.name,
           group: tv.category || '',
@@ -164,14 +185,27 @@ const AcestreamChannels: React.FC = () => {
   };
 
   // Handler for filter changes
-  const handleFilterChange = useCallback((newFilters: ChannelFilters) => {
-    setFilters(newFilters);
-    setPage(0);
+  const handleFilterChange = useCallback((newFilters: AcestreamChannelFilters) => {
+    setFilters(prevFilters => {
+      const changed = JSON.stringify(prevFilters) !== JSON.stringify(newFilters);
+      if (changed) {
+        setPage(0);
+        return newFilters;
+      }
+      return prevFilters;
+    });
   }, []);
 
   // Handler for sort changes
   const handleSortChange = useCallback((model: GridSortModel) => {
-    setSortModel(model);
+    setSortModel(prevModel => {
+      const changed = JSON.stringify(prevModel) !== JSON.stringify(model);
+      if (changed) {
+        setPage(0);
+        return model;
+      }
+      return prevModel;
+    });
   }, []);
 
   // Convert ChannelFilters to AdvancedSearchFilters for UI
@@ -183,27 +217,27 @@ const AcestreamChannels: React.FC = () => {
 
   // Bulk action handlers
   const handleBulkEdit = async (updates: any) => {
-    await channelService.bulkEditChannels(selectedIds, updates);
+    await acestreamChannelService.bulkEditAcestreamChannels(selectedIds, updates);
     refetch();
   };
   const handleBulkDelete = async () => {
-    await channelService.bulkDeleteChannels(selectedIds);
+    await acestreamChannelService.bulkDeleteAcestreamChannels(selectedIds);
     refetch();
   };
   const handleBulkActivate = async (active: boolean) => {
-    await channelService.bulkActivateChannels(selectedIds, active);
+    await acestreamChannelService.bulkActivateAcestreamChannels(selectedIds, active);
     refetch();
   };
   // Handler for batch assign (group)
   const handleBatchAssign = async (group: string) => {
-    await channelService.bulkEditChannels(selectedIds, { group });
+    await acestreamChannelService.bulkEditAcestreamChannels(selectedIds, { group });
     refetch();
   };
 
   // Handler for CSV export
   const handleExportCSV = async () => {
     try {
-      const blob = await channelService.exportChannelsCSV();
+      const blob = await acestreamChannelService.exportAcestreamChannelsCSV();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -238,7 +272,7 @@ const AcestreamChannels: React.FC = () => {
   useEffect(() => {
     setCatGroupLoading(true);
     setCatGroupError(null);
-    channelService.getGroups?.()
+    acestreamChannelService.getGroups?.()
       .then((grps) => {
         setGroups(grps || []);
       })
@@ -352,8 +386,10 @@ const AcestreamChannels: React.FC = () => {
               totalCount={totalCount}
               page={page}
               pageSize={pageSize}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
+              onPaginationModelChange={({ page: newPage, pageSize: newPageSize }) => {
+                if (page !== newPage) setPage(newPage);
+                if (pageSize !== newPageSize) setPageSize(newPageSize);
+              }}
               onSortChange={setSortModel}
               onSelectionChange={setSelectedIds}
               onActionComplete={refetch}

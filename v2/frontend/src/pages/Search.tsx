@@ -26,9 +26,10 @@ import {
   Checkbox,
   SelectChangeEvent
 } from '@mui/material';
-import { useSearch, useAddChannel, useAddMultipleChannels } from '../hooks/useSearch';
+import { CreateAcestreamChannelDTO } from '../services/channelService';
 import { SearchResultItem } from '../services/searchService';
 import { useQueryClient } from 'react-query';
+import { useSearch, useAddAcestreamChannel } from '../hooks/useSearch';
 
 const Search: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -36,12 +37,12 @@ const Search: React.FC = () => {
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(10);
   const [selectedChannels, setSelectedChannels] = useState<SearchResultItem[]>([]);
-  
+
   const queryClient = useQueryClient();
-  
+
   // Use a separate state to track when to execute the search
   const [activeSearch, setActiveSearch] = useState<{ query: string; page: number; category: string } | null>(null);
-  
+
   // Search query
   const { data: searchResults, isLoading: searchLoading, error: searchError } = useSearch(
     activeSearch?.query || '',
@@ -50,14 +51,13 @@ const Search: React.FC = () => {
     activeSearch?.category || '',
     { enabled: !!activeSearch }
   );
-  
-  // Add channel mutations
-  const addChannelMutation = useAddChannel();
-  const addMultipleChannelsMutation = useAddMultipleChannels();
-  
+
+  // Add channel mutation
+  const addChannelMutation = useAddAcestreamChannel();
+
   const handleSearch = useCallback(() => {
     if (!searchQuery.trim()) return;
-    
+
     setActiveSearch({
       query: searchQuery,
       page: 1,
@@ -65,21 +65,21 @@ const Search: React.FC = () => {
     });
     setPage(1);
   }, [searchQuery, category]);
-  
+
   const handlePageChange = useCallback((_: React.ChangeEvent<unknown>, newPage: number) => {
     if (!activeSearch) return;
-    
+
     setActiveSearch({
       ...activeSearch,
       page: newPage
     });
     setPage(newPage);
   }, [activeSearch]);
-  
+
   const handleCategoryChange = (event: SelectChangeEvent) => {
     setCategory(event.target.value as string);
   };
-  
+
   const handleChannelSelection = (channel: SearchResultItem, checked: boolean) => {
     if (checked) {
       setSelectedChannels(prev => [...prev, channel]);
@@ -87,28 +87,38 @@ const Search: React.FC = () => {
       setSelectedChannels(prev => prev.filter(c => c.id !== channel.id));
     }
   };
-  
+
+  // Map SearchResultItem to CreateAcestreamChannelDTO
+  const mapToCreateAcestreamChannelDTO = (item: SearchResultItem): CreateAcestreamChannelDTO => ({
+    id: item.id, // Set the acestream channel id to the search result id
+    name: item.name,
+    group: item.categories && item.categories.length > 0 ? item.categories[0] : undefined,
+    // Add more mappings if needed (logo, tvg_id, etc.)
+  });
+
   const handleAddChannel = async (channel: SearchResultItem) => {
     try {
-      await addChannelMutation.mutateAsync(channel);
+      await addChannelMutation.mutateAsync(mapToCreateAcestreamChannelDTO(channel));
       queryClient.invalidateQueries('channels');
     } catch (error) {
       console.error('Failed to add channel:', error);
     }
   };
-  
+
+  // Optionally, implement batch add by looping over selectedChannels
   const handleAddSelectedChannels = async () => {
     if (selectedChannels.length === 0) return;
-    
     try {
-      await addMultipleChannelsMutation.mutateAsync(selectedChannels);
+      for (const channel of selectedChannels) {
+        await addChannelMutation.mutateAsync(mapToCreateAcestreamChannelDTO(channel));
+      }
       queryClient.invalidateQueries('channels');
       setSelectedChannels([]);
     } catch (error) {
       console.error('Failed to add channels:', error);
     }
   };
-  
+
   const handleSelectAll = (checked: boolean) => {
     if (checked && searchResults?.results) {
       setSelectedChannels(searchResults.results);
@@ -116,23 +126,23 @@ const Search: React.FC = () => {
       setSelectedChannels([]);
     }
   };
-  
+
   const isChannelSelected = (channel: SearchResultItem) => {
     return selectedChannels.some(c => c.id === channel.id);
   };
-  
-  const allChannelsSelected = searchResults?.results && searchResults.results.length > 0 && 
+
+  const allChannelsSelected = searchResults?.results && searchResults.results.length > 0 &&
     searchResults.results.every((channel: SearchResultItem) => isChannelSelected(channel));
-  
+
   const hasSelection = selectedChannels.length > 0;
-  
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <>
         <Typography variant="h4" gutterBottom>
           Search Channels
         </Typography>
-      
+
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Grid container spacing={3}>
@@ -181,13 +191,13 @@ const Search: React.FC = () => {
           </Grid>
         </CardContent>
       </Card>
-      
+
       {searchError && (
         <Alert severity="error" sx={{ mb: 3 }}>
           Search failed: {String(searchError)}
         </Alert>
       )}
-      
+
       {searchResults && (
         <Card>
           <CardContent>
@@ -200,13 +210,13 @@ const Search: React.FC = () => {
                   variant="contained"
                   color="primary"
                   onClick={handleAddSelectedChannels}
-                  disabled={addMultipleChannelsMutation.isLoading}
+                  disabled={addChannelMutation.isLoading}
                 >
-                  {addMultipleChannelsMutation.isLoading ? <CircularProgress size={24} /> : `Add ${selectedChannels.length} Selected`}
+                  {addChannelMutation.isLoading ? <CircularProgress size={24} /> : `Add ${selectedChannels.length} Selected`}
                 </Button>
               )}
             </Box>
-            
+
             {(!searchResults.results || searchResults.results.length === 0) ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <Typography variant="body1" color="text.secondary">
@@ -272,7 +282,7 @@ const Search: React.FC = () => {
                     </TableBody>
                   </Table>
                 </TableContainer>
-                
+
                 {searchResults.pagination && searchResults.pagination.total_pages > 1 && (
                   <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
                     <Pagination

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, CircularProgress, Alert } from '@mui/material';
-import { channelService } from '../services/channelService';
+import { acestreamChannelService } from '../services/channelService';
 
 interface ActivityLogEntry {
   id: number;
@@ -23,7 +23,7 @@ const ChannelActivityLog: React.FC<ChannelActivityLogProps> = ({ channelId }) =>
   useEffect(() => {
     setLoading(true);
     setError(null);
-    channelService.getChannelActivityLog(channelId, { days: 30, page: 1, page_size: 50 })
+    acestreamChannelService.getAcestreamChannelActivityLog(channelId, { days: 30, page: 1, page_size: 50 })
       .then((data) => {
         setLog(data.items || []);
         setLoading(false);

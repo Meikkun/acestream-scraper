@@ -1,15 +1,11 @@
+
 import { useMutation, useQuery, UseQueryOptions } from 'react-query';
-import { 
-  searchService, 
-  SearchResponse, 
-  AddChannelRequest, 
-  AddChannelResponse, 
-  AddMultipleResponse 
-} from '../services/searchService';
+import { searchService, SearchResponse } from '../services/searchService';
+import { acestreamChannelService, CreateAcestreamChannelDTO, AcestreamChannel } from '../services/channelService';
 
 export const useSearch = (
-  query: string = '', 
-  page: number = 1, 
+  query: string = '',
+  page: number = 1,
   pageSize: number = 10,
   category?: string,
   options?: UseQueryOptions<SearchResponse>
@@ -24,14 +20,10 @@ export const useSearch = (
   );
 };
 
-export const useAddChannel = () => {
-  return useMutation<AddChannelResponse, Error, AddChannelRequest>(
-    (channel: AddChannelRequest) => searchService.addChannel(channel)
-  );
-};
 
-export const useAddMultipleChannels = () => {
-  return useMutation<AddMultipleResponse, Error, AddChannelRequest[]>(
-    (channels: AddChannelRequest[]) => searchService.addMultipleChannels(channels)
+// Mutation to add an Acestream channel
+export const useAddAcestreamChannel = () => {
+  return useMutation<AcestreamChannel, Error, CreateAcestreamChannelDTO>(
+    (channel: CreateAcestreamChannelDTO) => acestreamChannelService.createAcestreamChannel(channel)
   );
 };

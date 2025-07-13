@@ -7,14 +7,16 @@ from datetime import datetime
 import uuid
 
 
-class ChannelBase(BaseModel):
-    """Base model for channel data"""
-    id: Optional[str] = None  # GUID string, not integer
+
+class AcestreamChannelBase(BaseModel):
+    """Base model for Acestream channel data"""
+    id: str = Field(..., description="Acestream channel ID (required, GUID string)")
     name: str = Field(..., min_length=1)
 
 
-class ChannelCreate(ChannelBase):
-    """Schema for channel creation"""
+
+class AcestreamChannelCreate(AcestreamChannelBase):
+    """Schema for Acestream channel creation"""
     source_url: Optional[str] = None
     group: Optional[str] = None
     logo: Optional[str] = None
@@ -23,8 +25,9 @@ class ChannelCreate(ChannelBase):
     is_online: Optional[bool] = True  # Default to True
 
 
-class ChannelUpdate(BaseModel):
-    """Schema for channel update"""
+
+class AcestreamChannelUpdate(BaseModel):
+    """Schema for Acestream channel update"""
     name: Optional[str] = None
     group: Optional[str] = None
     logo: Optional[str] = None
@@ -37,8 +40,9 @@ class ChannelUpdate(BaseModel):
     epg_update_protected: Optional[bool] = None
 
 
-class ChannelResponse(ChannelBase):
-    """Schema for channel response"""
+
+class AcestreamChannelResponse(AcestreamChannelBase):
+    """Schema for Acestream channel response"""
     source_url: Optional[str] = None
     group: Optional[str] = None
     logo: Optional[str] = None
@@ -92,6 +96,7 @@ class TVChannelUpdate(BaseModel):
     epg_source_id: Optional[int] = None
 
 
+
 class TVChannelResponse(TVChannelBase):
     """Schema for TV channel response"""
     id: int
@@ -100,7 +105,7 @@ class TVChannelResponse(TVChannelBase):
     updated_at: datetime
     is_active: bool
     is_favorite: bool
-    acestream_channels: List[ChannelResponse] = []
+    acestream_channels: List[AcestreamChannelResponse] = []
 
     class Config:
         from_attributes = True
@@ -114,7 +119,8 @@ class ChannelStatusCheck(BaseModel):
     status_details: Dict[str, Any]
 
 
-class ChannelListResponse(BaseModel):
-    """Schema for paginated channel results"""
-    items: List[ChannelResponse]
+
+class AcestreamChannelListResponse(BaseModel):
+    """Schema for paginated acestream channel results"""
+    items: List[AcestreamChannelResponse]
     total: int

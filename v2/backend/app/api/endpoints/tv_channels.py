@@ -8,7 +8,7 @@ from typing import List, Optional, Dict, Any
 from app.config.database import get_db
 from app.services.tvchannel_service import TVChannelService
 from app.services.acestreamchannel_service import AcestreamChannelService
-from app.schemas.channel import TVChannelResponse, TVChannelCreate, TVChannelUpdate, ChannelResponse
+from app.schemas.channel import TVChannelResponse, TVChannelCreate, TVChannelUpdate, AcestreamChannelResponse
 
 router = APIRouter()
 
@@ -118,7 +118,7 @@ async def delete_tv_channel(tv_channel_id: int, db: Session = Depends(get_db)):
     return None
 
 
-@router.get("/{tv_channel_id}/acestreams", response_model=List[ChannelResponse])
+@router.get("/{tv_channel_id}/acestreams", response_model=List[AcestreamChannelResponse])
 async def get_tv_channel_acestreams(tv_channel_id: int, db: Session = Depends(get_db)):
     """
     Get all acestream channels associated with a TV channel.

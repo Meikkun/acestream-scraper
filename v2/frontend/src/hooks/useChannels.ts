@@ -1,27 +1,21 @@
-/**
- * React Query hooks for channels
- */
-import { useQuery, useMutation, useQueryClient, UseQueryOptions } from 'react-query';
-import { channelService, Channel, CreateChannelDTO, UpdateChannelDTO, ChannelFilters } from '../services/channelService';
 
-/**
- * Hook for fetching channels list
- */
-export const useChannels = (filters?: ChannelFilters, options?: UseQueryOptions<Channel[]>) => {
-  return useQuery<Channel[]>(
-    ['channels', filters], 
-    () => channelService.getChannels(filters),
+import { useQuery, useMutation, useQueryClient, UseQueryOptions } from 'react-query';
+import { acestreamChannelService, AcestreamChannel, CreateAcestreamChannelDTO, UpdateAcestreamChannelDTO, AcestreamChannelFilters } from '../services/channelService';
+
+// Fetch all Acestream channels
+export const useAcestreamChannels = (filters?: AcestreamChannelFilters, options?: UseQueryOptions<AcestreamChannel[]>) => {
+  return useQuery<AcestreamChannel[]>(
+    ['acestream-channels', filters],
+    () => acestreamChannelService.getAcestreamChannels(filters),
     options
   );
 };
 
-/**
- * Hook for fetching a single channel
- */
-export const useChannel = (id: string, options?: UseQueryOptions<Channel>) => {
-  return useQuery<Channel>(
-    ['channel', id],
-    () => channelService.getChannel(id),
+// Fetch a single Acestream channel
+export const useAcestreamChannel = (id: string, options?: UseQueryOptions<AcestreamChannel>) => {
+  return useQuery<AcestreamChannel>(
+    ['acestream-channel', id],
+    () => acestreamChannelService.getAcestreamChannel(id),
     {
       enabled: !!id,
       ...options
@@ -29,67 +23,41 @@ export const useChannel = (id: string, options?: UseQueryOptions<Channel>) => {
   );
 };
 
-/**
- * Hook for creating a channel
- */
-export const useCreateChannel = () => {
+// Create Acestream channel
+export const useCreateAcestreamChannel = () => {
   const queryClient = useQueryClient();
-  
-  return useMutation(
-    (channelData: CreateChannelDTO) => channelService.createChannel(channelData),
+  return useMutation<AcestreamChannel, Error, CreateAcestreamChannelDTO>(
+    (channelData: CreateAcestreamChannelDTO) => acestreamChannelService.createAcestreamChannel(channelData),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('channels');
+        queryClient.invalidateQueries('acestream-channels');
       }
     }
   );
 };
 
-/**
- * Hook for updating a channel
- */
-export const useUpdateChannel = (id: string) => {
+// Update Acestream channel
+export const useUpdateAcestreamChannel = (id: string) => {
   const queryClient = useQueryClient();
-  
-  return useMutation(
-    (channelData: UpdateChannelDTO) => channelService.updateChannel(id, channelData),
+  return useMutation<AcestreamChannel, Error, UpdateAcestreamChannelDTO>(
+    (channelData: UpdateAcestreamChannelDTO) => acestreamChannelService.updateAcestreamChannel(id, channelData),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries(['channel', id]);
-        queryClient.invalidateQueries('channels');
+        queryClient.invalidateQueries(['acestream-channel', id]);
+        queryClient.invalidateQueries('acestream-channels');
       }
     }
   );
 };
 
-/**
- * Hook for deleting a channel
- */
-export const useDeleteChannel = () => {
+// Delete Acestream channel
+export const useDeleteAcestreamChannel = () => {
   const queryClient = useQueryClient();
-  
-  return useMutation(
-    (id: string) => channelService.deleteChannel(id),
+  return useMutation<void, Error, string>(
+    (id: string) => acestreamChannelService.deleteAcestreamChannel(id),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('channels');
-      }
-    }
-  );
-};
-
-/**
- * Hook for checking channel status
- */
-export const useCheckChannelStatus = (id: string) => {
-  const queryClient = useQueryClient();
-  
-  return useMutation(
-    () => channelService.checkChannelStatus(id),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(['channel', id]);
-        queryClient.invalidateQueries('channels');
+        queryClient.invalidateQueries('acestream-channels');
       }
     }
   );
