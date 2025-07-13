@@ -128,14 +128,17 @@ async def check_all_channels_status(
             channels,
             concurrency
         )
-        return BulkStatusCheckResponse(
-            total_channels=len(channels),
-            total_checked=0,
-            online_count=0,
-            offline_count=0,
-            results=[],
-            summary=status_service.get_channel_status_summary()
-        )
+        # Return all required fields for BulkStatusCheckResponse (with defaults)
+        return {
+            "message": f"Status check started in background for {len(channels)} channels. This will finish when it finishes.",
+            "background": True,
+            "total_channels": len(channels),
+            "total_checked": 0,
+            "online_count": 0,
+            "offline_count": 0,
+            "results": [],
+            "summary": status_service.get_channel_status_summary()
+        }
     else:
         # Check immediately for small numbers
         results = await status_service.check_multiple_channels(channels, concurrency)
@@ -145,14 +148,16 @@ async def check_all_channels_status(
         online_count = sum(1 for r in results if r["is_online"])
         offline_count = sum(1 for r in results if not r["is_online"])
 
-        return BulkStatusCheckResponse(
-            total_channels=len(channels),
-            total_checked=len(results),
-            online_count=online_count,
-            offline_count=offline_count,
-            results=results,
-            summary=summary
-        )
+        return {
+            "message": f"Status check completed for {len(channels)} channels.",
+            "background": False,
+            "total_channels": len(channels),
+            "total_checked": len(results),
+            "online_count": online_count,
+            "offline_count": offline_count,
+            "results": results,
+            "summary": summary
+        }
 
 
 @router.get("/tv/", response_model=List[TVChannelResponse])

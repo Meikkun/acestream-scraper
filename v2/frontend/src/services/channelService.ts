@@ -9,7 +9,7 @@ import apiClient from './apiClient';
 export interface Channel {
   id: string;
   name: string;
-  added_at: string;
+  last_seen: string;
   last_processed?: string;
   status: string;
   source_url?: string;

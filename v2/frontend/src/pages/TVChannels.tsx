@@ -1,13 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
   Button,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
   Pagination,
   CircularProgress,
   TextField,
@@ -18,9 +14,6 @@ import {
   DialogActions,
   FormControlLabel,
   Switch,
-  AppBar,
-  Toolbar,
-  Link,
   useTheme,
   useMediaQuery,
   Table,
@@ -34,15 +27,22 @@ import {
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, PlayArrow as PlayIcon } from '@mui/icons-material';
 import { useAllTVChannels, useDeleteTVChannel, useCreateTVChannel, useUpdateTVChannel } from '../hooks/useTVChannels';
+import { AdvancedSearchFilters } from '../components/AdvancedSearch';
+import TVChannelsTable from '../components/TVChannelsTable';
 import { TVChannel, TVChannelCreate, TVChannelUpdate } from '../types/tvChannelTypes';
 import { Link as RouterLink } from 'react-router-dom';
 import './TVChannels.css';
 
-const ITEMS_PER_PAGE = 12;
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
+
 
 const TVChannels: React.FC = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
+  const [filters, setFilters] = useState<AdvancedSearchFilters>({});
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<TVChannel | null>(null);
@@ -56,16 +56,46 @@ const TVChannels: React.FC = () => {
     is_active: true
   });
 
-  const skip = (page - 1) * ITEMS_PER_PAGE;
-  const { data: channels, isLoading, isError } = useAllTVChannels(skip, ITEMS_PER_PAGE);
+  // Memoize query params for backend
+  const queryParams = useMemo(() => {
+    const params: Record<string, any> = {
+      skip: (page - 1) * pageSize,
+      limit: pageSize
+    };
+    if (filters.search) params.search = filters.search;
+    if (filters.category) params.category = filters.category;
+    if (filters.group) params.group = filters.group;
+    if (filters.status) params.status = filters.status;
+    if (filters.sort) params.sort = filters.sort;
+    if (filters.country) params.country = filters.country;
+    if (filters.language) params.language = filters.language;
+    if (filters.is_active) params.is_active = filters.is_active;
+    if (filters.is_online) params.is_online = filters.is_online;
+    return params;
+  }, [filters, page, pageSize]);
+
+  // TODO: To support advanced filtering, update tvChannelService and useAllTVChannels to accept filter params
+  const { data: channelsData, isLoading, isError } = useAllTVChannels(queryParams.skip, queryParams.limit);
   const deleteMutation = useDeleteTVChannel();
   const createMutation = useCreateTVChannel();
   const updateMutation = useUpdateTVChannel();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+
+
   const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
     setPage(value);
+  };
+
+  const handlePageSizeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setPageSize(Number(event.target.value));
+    setPage(1); // Reset to first page when page size changes
+  };
+
+  const handleFilterChange = (newFilters: AdvancedSearchFilters) => {
+    setFilters(newFilters);
+    setPage(1); // Reset to first page on filter change
   };
 
   const handleOpenCreateDialog = () => {
@@ -156,11 +186,13 @@ const TVChannels: React.FC = () => {
     );
   }
 
-  const totalPages = Math.ceil((channels?.total || 0) / ITEMS_PER_PAGE);
+
+  const totalChannels = channelsData?.total || 0;
+  const totalPages = Math.ceil(totalChannels / pageSize);
+  const channels = channelsData?.items || [];
 
   return (
     <Box sx={{ width: '100%' }}>
-      {/* Removed AppBar/Toolbar navigation buttons, now handled by NavBar */}
       <Box p={isMobile ? 1 : 3}>
         <Box display="flex" flexDirection={isMobile ? 'column' : 'row'} justifyContent="space-between" alignItems={isMobile ? 'stretch' : 'center'} mb={3} gap={2}>
           <Typography variant="h4">TV Channels</Typography>
@@ -173,62 +205,30 @@ const TVChannels: React.FC = () => {
             Add TV Channel
           </Button>
         </Box>
-        <TableContainer component={Paper}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Logo</TableCell>
-                <TableCell>Name</TableCell>
-                <TableCell>Number</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Language</TableCell>
-                <TableCell>Country</TableCell>
-                <TableCell>Streams</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(channels?.items || []).map((channel) => (
-                <TableRow key={channel.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/tv-channels/${channel.id}`)}>
-                  <TableCell>
-                    {channel.logo_url ? <Avatar src={channel.logo_url} alt={channel.name} /> : null}
-                  </TableCell>
-                  <TableCell>{channel.name}</TableCell>
-                  <TableCell>{channel.channel_number ?? '—'}</TableCell>
-                  <TableCell>{channel.category || '-'}</TableCell>
-                  <TableCell>{channel.language || '-'}</TableCell>
-                  <TableCell>{channel.country || '-'}</TableCell>
-                  <TableCell>{Array.isArray(channel.acestream_channels) ? channel.acestream_channels.length : '—'}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" color={channel.is_active ? 'primary' : 'error'}>
-                      {channel.is_active ? 'Active' : 'Inactive'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell onClick={e => e.stopPropagation()}>
-                    <IconButton size="small" onClick={() => handleOpenEditDialog(channel)}>
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton size="small" onClick={() => handleDelete(channel.id)}>
-                      <DeleteIcon />
-                    </IconButton>
-                    <IconButton size="small" color="primary" disabled={channel.acestream_channels.length === 0} onClick={() => navigate(`/tv-channels/${channel.id}`)}>
-                      <PlayIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <Box display="flex" justifyContent="center" mt={4}>
-          <Pagination
-            count={totalPages}
-            page={page}
-            onChange={handlePageChange}
-            color="primary"
+
+
+
+
+        {/* Table grid handles pagination and page size */}
+
+
+        <Paper sx={{ p: { xs: 1, sm: 2 }, width: '100%', overflowX: 'auto' }}>
+          <TVChannelsTable
+            channels={channels}
+            loading={isLoading}
+            totalCount={totalChannels}
+            page={page - 1}
+            pageSize={pageSize}
+            onPageChange={p => setPage(p + 1)}
+            onPageSizeChange={setPageSize}
+            onSortChange={() => {}}
+            onEdit={handleOpenEditDialog}
+            onDelete={handleDelete}
+            onPlay={id => navigate(`/tv-channels/${id}`)}
           />
-        </Box>
+        </Paper>
+
+        {/* Pagination is handled by ChannelTable (DataGrid) */}
 
         {/* Create TV Channel Dialog */}
         <Dialog open={openCreateDialog} onClose={() => setOpenCreateDialog(false)} maxWidth="sm" fullWidth>
@@ -453,3 +453,19 @@ const TVChannels: React.FC = () => {
 };
 
 export default TVChannels;
+
+/* Add styles for the page size select */
+// You can move this to TVChannels.css if preferred
+const style = document.createElement('style');
+style.innerHTML = `
+.tvchannels-page-size-select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+`;
+if (typeof document !== 'undefined' && !document.getElementById('tvchannels-page-size-style')) {
+  style.id = 'tvchannels-page-size-style';
+  document.head.appendChild(style);
+}

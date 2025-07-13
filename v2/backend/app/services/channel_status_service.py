@@ -15,6 +15,7 @@ from app.repositories.channel_repository import ChannelRepository
 logger = logging.getLogger(__name__)
 
 
+
 class ChannelStatusService:
     """Service for checking Acestream channel status via engine API"""
 
@@ -22,17 +23,19 @@ class ChannelStatusService:
         """Initialize with database session"""
         self.db = db
         self.channel_repository = ChannelRepository(db)
-        self.settings = get_settings()
-        self.engine_url = self.settings.ace_engine_url
+        from app.repositories.settings_repository import SettingsRepository
+        self.settings_repo = SettingsRepository(db)
         self.timeout = 10
         self._next_player_id = 0
 
-        # Ensure URL is properly formatted
-        if not self.engine_url.startswith('http'):
-            self.engine_url = f"http://{self.engine_url}"
-        self.engine_url = self.engine_url.rstrip('/')
-
-        logger.debug(f"ChannelStatusService initialized with engine URL: {self.engine_url}")
+    def _get_engine_url(self) -> str:
+        url = self.settings_repo.get_setting(self.settings_repo.ACE_ENGINE_URL, None)
+        if not url:
+            raise RuntimeError("Acestream Engine URL is not set in the database. Please configure it via the settings API.")
+        url = url.strip()
+        if not url.startswith('http'):
+            url = f"http://{url}"
+        return url.rstrip('/')
 
     async def check_channel_status(self, channel: AcestreamChannel) -> Dict[str, Any]:
         """
@@ -50,8 +53,9 @@ class ChannelStatusService:
             # Generate unique player ID
             self._next_player_id = (self._next_player_id + 1) % 100000
 
-            # Build status check URL
-            status_url = f"{self.engine_url}/ace/getstream"
+            # Always fetch the latest engine_url from DB
+            engine_url = self._get_engine_url()
+            status_url = f"{engine_url}/ace/getstream"
             params = {
                 'id': channel.id,
                 'format': 'json',

@@ -21,7 +21,7 @@ interface BulkOperationsProps {
   onClose: () => void;
   selectedChannels: any[];
   onBulkEdit: (updates: any) => Promise<void>;
-  onBulkDelete: () => Promise<void>;
+  onBulkDelete: (ids: any[]) => Promise<void>; // Accepts array of IDs for bulk delete
   onBulkActivate: (active: boolean) => Promise<void>;
 }
 
@@ -120,12 +120,21 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
   const handleBulkDelete = async () => {
     setLoading(true);
     setError(null);
+    setSuccess(null);
+    setOperationResults([]);
+    setSummary({ success: 0, error: 0 });
     try {
-      await runPerChannel(async (ch) => {
-        await onBulkDelete();
-      });
+      // Call bulk delete with all selected IDs
+      await onBulkDelete(selectedChannels.map(ch => ch.id));
+      setOperationResults(selectedChannels.map(ch => ({ id: ch.id, status: 'success' as const })));
+      setSummary({ success: selectedChannels.length, error: 0 });
+      setSuccess('All selected channels deleted successfully.');
+      setTimeout(() => { setSuccess(null); onClose(); }, 1500);
     } catch (err: any) {
-      setError(err.message || 'Bulk delete failed');
+      // If error, mark all as failed
+      setOperationResults(selectedChannels.map(ch => ({ id: ch.id, status: 'error' as const, message: err?.message || 'Bulk delete failed' })));
+      setSummary({ success: 0, error: selectedChannels.length });
+      setError(err?.message || 'Bulk delete failed');
     } finally {
       setLoading(false);
     }
@@ -172,7 +181,16 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
           </Box>
         )}
         {mode === 'delete' && (
-          <Alert severity="warning">Are you sure you want to delete {selectedChannels.length} channels? This action cannot be undone.</Alert>
+          <Box>
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Are you sure you want to delete {selectedChannels.length} channels? This action cannot be undone.
+            </Alert>
+            <Box sx={{ maxHeight: 200, overflow: 'auto', mb: 2 }}>
+              {selectedChannels.map(ch => (
+                <Typography key={ch.id} variant="body2">• {ch.name || ch.id}</Typography>
+              ))}
+            </Box>
+          </Box>
         )}
         {mode === 'activate' && (
           <Box>

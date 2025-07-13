@@ -3,7 +3,7 @@
 // ...existing code from Channels.tsx will be adapted here...
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Typography, Box, Button, Alert, Paper, AppBar, Toolbar, Link, useTheme, useMediaQuery, Tooltip, IconButton } from '@mui/material';
+import { Typography, Box, Button, Alert, Paper, AppBar, Toolbar, Link, useTheme, useMediaQuery, Tooltip, IconButton, CircularProgress, Snackbar } from '@mui/material';
 import { Add, Refresh } from '@mui/icons-material';
 import { GridSortModel } from '@mui/x-data-grid';
 import ChannelTable from '../components/ChannelTable';
@@ -33,6 +33,8 @@ const AcestreamChannels: React.FC = () => {
   const [checkingStatus, setCheckingStatus] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [checkingAll, setCheckingAll] = useState(false);
+  const [checkAllResult, setCheckAllResult] = useState<string|null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [batchAssignOpen, setBatchAssignOpen] = useState(false);
   const [quickEditOpen, setQuickEditOpen] = useState(false);
@@ -215,6 +217,23 @@ const AcestreamChannels: React.FC = () => {
     }
   };
 
+  // Handler for check all statuses
+  const handleCheckAllStatuses = async () => {
+    setCheckingAll(true);
+    setCheckAllResult(null);
+    try {
+      const resp = await fetch('/api/v1/channels/check_status_all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      if (!resp.ok) throw new Error('Failed to check all statuses');
+      const data = await resp.json();
+      // Always show the backend's message, ignore numbers
+      setCheckAllResult(data.message || 'Acestream status check background task triggered successfully.');
+    } catch (err: any) {
+      setCheckAllResult('Failed to check all statuses: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setCheckingAll(false);
+    }
+  };
+
   // Fetch groups on mount
   useEffect(() => {
     setCatGroupLoading(true);
@@ -247,6 +266,26 @@ const AcestreamChannels: React.FC = () => {
             >
               Refresh
             </Button>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={handleCheckAllStatuses}
+              disabled={checkingAll}
+              fullWidth={true}
+              sx={{ minWidth: 160 }}
+            >
+              {checkingAll ? <><CircularProgress size={18} sx={{ mr: 1 }} />Checking All...</> : 'Check All Statuses'}
+            </Button>
+        <Snackbar
+          open={!!checkAllResult}
+          autoHideDuration={6000}
+          onClose={() => setCheckAllResult(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert onClose={() => setCheckAllResult(null)} severity={checkAllResult?.startsWith('Failed') ? 'error' : 'success'} sx={{ width: '100%' }}>
+            {checkAllResult}
+          </Alert>
+        </Snackbar>
             <Button
               variant="outlined"
               onClick={handleExportCSV}
@@ -317,6 +356,7 @@ const AcestreamChannels: React.FC = () => {
               onPageSizeChange={setPageSize}
               onSortChange={setSortModel}
               onSelectionChange={setSelectedIds}
+              onActionComplete={refetch}
               // Add assign button to each row
               extraActions={(row: any) => {
                 const assignedTV = (tvChannels?.items || []).find((tv: any) => tv.id === row.tv_channel_id);

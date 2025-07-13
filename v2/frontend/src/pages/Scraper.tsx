@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { 
-  Typography, 
-  Box, 
-  Paper, 
-  Button, 
-  TextField, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
+import React, { useState, useEffect } from 'react';
+import {
+  Typography,
+  Box,
+  Paper,
+  Button,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
   DialogActions,
   Table,
   TableBody,
@@ -52,17 +52,21 @@ const initialFormData: URLFormData = {
 const Scraper: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
+  // currentId for edit, scrapeId for scraping
   const [currentId, setCurrentId] = useState<number | null>(null);
+  // Use scrapeId state and trigger mutation in useEffect
+
   const [formData, setFormData] = useState<URLFormData>(initialFormData);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
-  
+
   // Queries and mutations
   const { data: urls, isLoading, refetch } = useURLs();
   const createURL = useCreateURL();
   const updateURL = useUpdateURL(currentId || 0);
   const deleteURL = useDeleteURL();
-  const scrapeURL = useScrapeURL(currentId || 0);
   const scrapeAllURLs = useScrapeAllURLs();
+  const [scrapeId, setScrapeId] = useState<number | null>(null);
+  const scrapeURL = useScrapeURL(scrapeId || 0);
 
   const handleOpenDialog = (edit = false, url?: ScrapedURL) => {
     setIsEdit(edit);
@@ -86,10 +90,10 @@ const Scraper: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.name as keyof URLFormData;
-    const value = e.target.name === 'enabled' 
+    const value = e.target.name === 'enabled'
       ? (e.target as HTMLInputElement).checked
       : e.target.value;
-    
+
     setFormData({
       ...formData,
       [name]: value
@@ -99,7 +103,7 @@ const Scraper: React.FC = () => {
   const handleSelectChange = (e: SelectChangeEvent<string>) => {
     const name = e.target.name as keyof URLFormData;
     const value = e.target.value;
-    
+
     setFormData({
       ...formData,
       [name]: value
@@ -108,7 +112,7 @@ const Scraper: React.FC = () => {
 
   const handleEnabledChange = (e: SelectChangeEvent<string>) => {
     const value = e.target.value === 'true';
-    
+
     setFormData({
       ...formData,
       enabled: value
@@ -163,23 +167,36 @@ const Scraper: React.FC = () => {
     }
   };
 
-  const handleScrape = async (id: number) => {
-    setCurrentId(id);
-    try {
-      await scrapeURL.mutateAsync();
-      setSnackbar({
-        open: true,
-        message: 'Scraping completed',
-        severity: 'success'
-      });
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: `Error: ${(error as Error).message}`,
-        severity: 'error'
-      });
-    }
+  const [scrapingId, setScrapingId] = useState<number | null>(null);
+  const handleScrape = (id: number) => {
+    setScrapingId(id);
+    setScrapeId(id);
   };
+
+  useEffect(() => {
+    const runScrape = async () => {
+      if (scrapeId === null) return;
+      try {
+        await scrapeURL.mutateAsync();
+        setSnackbar({
+          open: true,
+          message: 'Scraping completed',
+          severity: 'success'
+        });
+      } catch (error) {
+        setSnackbar({
+          open: true,
+          message: `Error: ${(error as Error).message}`,
+          severity: 'error'
+        });
+      } finally {
+        setScrapingId(null);
+        setScrapeId(null);
+      }
+    };
+    runScrape();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrapeId]);
 
   const handleScrapeAll = async () => {
     if (window.confirm('Start scraping all enabled URLs?')) {
@@ -211,18 +228,18 @@ const Scraper: React.FC = () => {
           URL Scraper
         </Typography>
         <Box>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<AddIcon />} 
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
             onClick={() => handleOpenDialog(false)}
           >
             Add URL
           </Button>
-          <Button 
-            variant="outlined" 
-            color="secondary" 
-            startIcon={<PlayArrowIcon />} 
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={<PlayArrowIcon />}
             onClick={handleScrapeAll}
             disabled={scrapeAllURLs.isLoading}
             sx={{ ml: 2 }}
@@ -237,7 +254,7 @@ const Scraper: React.FC = () => {
 
       <Paper sx={{ width: '100%', overflow: 'hidden' }}>
         {isLoading && <LinearProgress />}
-        
+
         <TableContainer sx={{ maxHeight: 640 }}>
           <Table stickyHeader>
             <TableHead>
@@ -257,10 +274,10 @@ const Scraper: React.FC = () => {
                     <TableCell>{url.url}</TableCell>
                     <TableCell>{url.url_type}</TableCell>
                     <TableCell>
-                      <Chip 
-                        label={url.enabled ? "Enabled" : "Disabled"} 
-                        color={url.enabled ? "success" : "default"} 
-                        size="small" 
+                      <Chip
+                        label={url.enabled ? "Enabled" : "Disabled"}
+                        color={url.enabled ? "success" : "default"}
+                        size="small"
                       />
                     </TableCell>
                     <TableCell>
@@ -268,10 +285,10 @@ const Scraper: React.FC = () => {
                     </TableCell>
                     <TableCell>{url.channels_found || 0}</TableCell>
                     <TableCell>
-                      <IconButton 
-                        color="primary" 
+                      <IconButton
+                        color="primary"
                         onClick={() => handleScrape(url.id)}
-                        disabled={scrapeURL.isLoading && currentId === url.id}
+                        disabled={scrapeURL.isLoading && scrapingId === url.id}
                       >
                         <PlayArrowIcon />
                       </IconButton>
@@ -339,9 +356,9 @@ const Scraper: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button 
-            onClick={handleSubmit} 
-            variant="contained" 
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
             color="primary"
             disabled={!formData.url || createURL.isLoading || updateURL.isLoading}
           >
@@ -350,9 +367,9 @@ const Scraper: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={6000} 
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
         onClose={closeSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >

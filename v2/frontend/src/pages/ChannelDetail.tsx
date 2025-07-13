@@ -463,7 +463,7 @@ const ChannelDetail: React.FC = () => {
             <Divider />
             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
               <Typography variant="body2" color="textSecondary">
-                Added: {formatDate(channel.added_at)}
+                Last Scraped: {formatDate(channel.last_seen)}
               </Typography>
               {channel.last_processed && (
                 <Typography variant="body2" color="textSecondary">

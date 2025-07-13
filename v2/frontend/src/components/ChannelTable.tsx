@@ -9,7 +9,7 @@ import {
   GridFilterModel,
 } from '@mui/x-data-grid';
 import { Chip, Box, IconButton, Tooltip, CircularProgress, Snackbar, Alert } from '@mui/material';
-import { CheckCircle, Cancel, Refresh, Edit, Delete } from '@mui/icons-material';
+import { CheckCircle, Cancel, Refresh, Edit, Delete, PowerSettingsNew, Block, HelpOutline } from '@mui/icons-material';
 import { Channel, ChannelFilters } from '../services/channelService';
 import { formatDate } from '../utils/errorUtils';
 import ChannelActivityLogDialog from './ChannelActivityLogDialog';
@@ -31,6 +31,7 @@ interface ChannelTableProps {
   onSortChange: (model: GridSortModel) => void;
   onSelectionChange?: (selectedIds: string[]) => void;
   extraActions?: (row: Channel) => React.ReactNode;
+  onActionComplete?: () => void;
 }
 
 /**
@@ -53,6 +54,7 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
   onSortChange,
   onSelectionChange,
   extraActions,
+  onActionComplete,
 }) => {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
@@ -115,19 +117,6 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
       ),
     },
     {
-      field: 'status',
-      headerName: 'Status',
-      width: 90, // was 120
-      filterable: true,
-      renderCell: (params: GridRenderCellParams<Channel>) => (
-        <Chip
-          label={params.row.status}
-          color={params.row.status === 'active' ? 'success' : 'default'}
-          size="small"
-        />
-      ),
-    },
-    {
       field: 'is_online',
       headerName: 'Online',
       width: 80, // was 100
@@ -151,39 +140,28 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
       valueGetter: (params: GridValueGetterParams<Channel>) => formatDate(params.row.last_checked),
     },
     {
-      field: 'added_at',
-      headerName: 'Added',
+      field: 'last_seen',
+      headerName: 'Last Scraped',
       width: 120, // was 170
-      valueGetter: (params: GridValueGetterParams<Channel>) => formatDate(params.row.added_at),
+      valueGetter: (params: GridValueGetterParams<Channel>) => formatDate(params.row.last_seen),
     },
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 200,
+      width: 260,
       sortable: false,
       renderCell: (params: GridRenderCellParams) => (
         <Box display="flex" gap={1}>
           <Tooltip title="Edit">
-            <IconButton size="small" onClick={() => onEdit(params.row)}>
+            <IconButton size="small" onClick={() => { onEdit(params.row); onActionComplete && onActionComplete(); }}>
               <Edit fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip title="Delete">
-            <IconButton size="small" onClick={() => onDelete(params.row.id)}>
+            <IconButton size="small" onClick={async () => { await onDelete(params.row.id); onActionComplete && onActionComplete(); }}>
               <Delete fontSize="small" />
             </IconButton>
           </Tooltip>
-          {extraActions && extraActions(params.row)}
-        </Box>
-      ),
-    },
-    {
-      field: 'quickActions',
-      headerName: 'Quick Actions',
-      width: 120, // was 160
-      sortable: false,
-      renderCell: (params: GridRenderCellParams<Channel>) => (
-        <Box sx={{ display: 'flex' }}>
           <Tooltip title={params.row.is_active ? 'Deactivate' : 'Activate'}>
             <IconButton
               size="small"
@@ -193,14 +171,35 @@ const ChannelTable: React.FC<ChannelTableProps> = ({
                   await import('../services/channelService').then(({ channelService }) =>
                     channelService.updateChannel(params.row.id, { is_active: !params.row.is_active })
                   );
+                  onActionComplete && onActionComplete();
                 } catch (err: any) {
                   setError('Failed to update channel: ' + (err?.message || 'Unknown error'));
                 }
               }}
             >
-              {params.row.is_active ? <Cancel color="error" /> : <CheckCircle color="success" />}
+              {params.row.is_active ? <PowerSettingsNew color="warning" /> : <CheckCircle color="success" />}
             </IconButton>
           </Tooltip>
+          <Tooltip title="Check Status">
+            <IconButton
+              size="small"
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  const resp = await fetch(`/api/v1/channels/${params.row.id}/check_status`, { method: 'POST' });
+                  if (!resp.ok) throw new Error('Failed to check status');
+                  const data = await resp.json();
+                  setError(`Status: ${data.status || data.message || 'Unknown'}`);
+                  onActionComplete && onActionComplete();
+                } catch (err: any) {
+                  setError('Failed to check status: ' + (err?.message || 'Unknown error'));
+                }
+              }}
+            >
+              <Refresh color="primary" />
+            </IconButton>
+          </Tooltip>
+          {extraActions && extraActions(params.row)}
         </Box>
       ),
     },
