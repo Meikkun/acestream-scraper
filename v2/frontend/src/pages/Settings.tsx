@@ -26,6 +26,7 @@ import {
   useUpdateAddPid,
   useAcestreamStatus
 } from '../hooks/useConfig';
+import { configService } from '../services/configService';
 
 const Settings: React.FC = () => {
   // Form state
@@ -33,6 +34,7 @@ const Settings: React.FC = () => {
   const [aceEngineUrl, setAceEngineUrl] = useState<string>('');
   const [rescrapeInterval, setRescrapeInterval] = useState<number>(24);
   const [addPid, setAddPid] = useState<boolean>(false);
+  const [appid, setAppid] = useState<boolean>(false);
   const [showSuccess, setShowSuccess] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
 
@@ -42,6 +44,17 @@ const Settings: React.FC = () => {
   const rescrapeIntervalQuery = useRescrapeInterval();
   const addPidQuery = useAddPid();
   const acestreamStatusQuery = useAcestreamStatus({ refetchInterval: 30000 }); // Refetch every 30 seconds
+
+  // AppID config (manual, since not in hooks yet)
+  const [appidLoading, setAppidLoading] = useState<boolean>(true);
+  const [appidSubmitting, setAppidSubmitting] = useState<boolean>(false);
+  React.useEffect(() => {
+    setAppidLoading(true);
+    configService.getAppId().then((val) => {
+      setAppid(val);
+      setAppidLoading(false);
+    });
+  }, []);
 
   // Mutations
   const updateBaseUrlMutation = useUpdateBaseUrl();
@@ -108,21 +121,37 @@ const Settings: React.FC = () => {
     });
   };
 
+
+  const handleAppidChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setAppid(checked);
+    setAppidSubmitting(true);
+    configService.updateAppId(checked).then(() => {
+      setSuccessMessage('AppID setting updated successfully');
+      setShowSuccess(true);
+      setAppidSubmitting(false);
+    });
+  };
+
   const handleCloseSnackbar = () => {
     setShowSuccess(false);
   };
+
 
   const isLoading =
     baseUrlQuery.isLoading ||
     aceEngineUrlQuery.isLoading ||
     rescrapeIntervalQuery.isLoading ||
-    addPidQuery.isLoading;
+    addPidQuery.isLoading ||
+    appidLoading;
+
 
   const isSubmitting =
     updateBaseUrlMutation.isLoading ||
     updateAceEngineUrlMutation.isLoading ||
     updateRescrapeIntervalMutation.isLoading ||
-    updateAddPidMutation.isLoading;
+    updateAddPidMutation.isLoading ||
+    appidSubmitting;
 
   if (isLoading) {
     return (
@@ -290,25 +319,25 @@ const Settings: React.FC = () => {
           </Card>
         </Grid>
 
-        {/* Add PID Card */}
+        {/* AppID Card */}
         <Grid item xs={12} md={6}>
           <Card>
-            <CardHeader title="Acestream PID Configuration" />
+            <CardHeader title="Acestream AppID Configuration" />
             <Divider />
             <CardContent>
               <Box sx={{ p: 2 }}>
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={addPid}
-                      onChange={handleAddPidChange}
-                      disabled={updateAddPidMutation.isLoading}
+                      checked={appid}
+                      onChange={handleAppidChange}
+                      disabled={appidSubmitting}
                     />
                   }
-                  label="Add PID to Acestream links"
+                  label="Use AppID in Acestream links"
                 />
                 <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                  When enabled, the PID will be added to Acestream links in playlists.
+                  When enabled, the AppID will be used in Acestream links in playlists.
                 </Typography>
               </Box>
             </CardContent>

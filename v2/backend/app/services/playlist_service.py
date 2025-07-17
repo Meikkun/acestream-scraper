@@ -52,8 +52,23 @@ class PlaylistService:
             exclude_groups=exclude_groups
         )
 
+        # Always get base_url from settings if not provided
+        if not base_url:
+            from app.repositories.settings_repository import SettingsRepository
+            settings_repo = SettingsRepository(self.db)
+            base_url = settings_repo.get_setting(SettingsRepository.BASE_URL, SettingsRepository.DEFAULT_BASE_URL)
+        # Get addpid config only
+        from app.repositories.settings_repository import SettingsRepository
+        addpid = settings_repo.get_setting(SettingsRepository.ADDPID, SettingsRepository.DEFAULT_ADDPID)
+        addpid_enabled = str(addpid).lower() in ("true", "1")
+
         # Generate M3U content
-        m3u_content = self._generate_m3u_content(channels, base_url=base_url, format=format)
+        m3u_content = self._generate_m3u_content(
+            channels,
+            base_url=base_url,
+            format=format,
+            addpid=addpid_enabled
+        )
         return m3u_content
 
     async def get_channel_groups(self) -> List[str]:
@@ -65,7 +80,7 @@ class PlaylistService:
         """
         return self.channel_repository.get_unique_groups()
 
-    def _generate_m3u_content(self, channels: List[AcestreamChannel], base_url: Optional[str] = None, format: Optional[str] = None) -> str:
+    def _generate_m3u_content(self, channels: List[AcestreamChannel], base_url: Optional[str] = None, format: Optional[str] = None, addpid: bool = False) -> str:
         """
         Convert channels to M3U format, supporting custom base_url and format
 
@@ -80,11 +95,10 @@ class PlaylistService:
         # M3U header
         header = "#EXTM3U\n"
 
-        # Current timestamp for cache busting
-        timestamp = str(int(time.time()))
-
         # Generate each channel entry
         entries = []
+        pid_counter = 1
+
         for channel in channels:
             # Skip invalid channels
             if not channel.id or not channel.name:
@@ -111,19 +125,15 @@ class PlaylistService:
             # Generate entry
             entry = f'#EXTINF:-1 {" ".join(attrs)}, {channel.name}\n'
 
-            # Use custom base_url if provided
-            acestream_url = channel.source_url
-            if base_url and acestream_url and acestream_url.startswith('acestream://'):
-                acestream_id = acestream_url.replace('acestream://', '')
-                entry += f'{base_url.rstrip("/")}/{acestream_id}?{timestamp}\n'
-            elif acestream_url and acestream_url.startswith('acestream://'):
-                acestream_id = acestream_url.replace('acestream://', '')
-                entry += f'acestream://{acestream_id}?{timestamp}\n'
-            else:
-                # Fallback to source_url if it's not in acestream format
-                entry += f'{acestream_url or ""}?{timestamp}\n'
+            # Use base_url as-is, concatenate channel.id
+            link = f'{base_url}{channel.id}'
+            if addpid:
+                link += f'&pid={pid_counter}'
+            entry += link + '\n'
 
             entries.append(entry)
+            if addpid:
+                pid_counter += 1
 
         # Combine all parts
         return header + '\n'.join(entries)

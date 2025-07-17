@@ -21,7 +21,7 @@ import {
 } from '@mui/material';
 import { Download, QrCode } from '@mui/icons-material';
 import { useM3UPlaylist, useChannelGroups } from '../hooks/usePlaylists';
-import { PlaylistFilters } from '../services/playlistService';
+import { PlaylistFilters, playlistService } from '../services/playlistService';
 import { getErrorMessage } from '../utils/errorUtils';
 
 /**
@@ -36,43 +36,18 @@ const Playlist: React.FC = () => {
 
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [search, setSearch] = useState<string>('');
-  
+
   // Get available channel groups
-  const { 
+  const {
     data: channelGroups = [],
     isLoading: loadingGroups
   } = useChannelGroups();
 
-  // Get M3U playlist URL based on current filters
-  const playlistUrl = (() => {
-    const params: Record<string, string> = {};
-    
-    if (filters.only_online !== undefined) {
-      params.only_online = String(filters.only_online);
-    }
-    
-    if (filters.search) {
-      params.search = filters.search;
-    }
-    
-    if (search) {
-      params.search = search;
-    }
-    
-    if (filters.include_groups) {
-      filters.include_groups.forEach(g => {
-        params[`include_groups`] = g;
-      });
-    }
-    
-    if (filters.exclude_groups) {
-      filters.exclude_groups.forEach(g => {
-        params[`exclude_groups`] = g;
-      });
-    }
-    
-    return `/api/v1/playlists/m3u?${new URLSearchParams(params).toString()}`;
-  })();
+  // Get M3U playlist URL based on current filters (use absolute in dev, relative in prod)
+  const playlistUrl = playlistService.getPlaylistDownloadUrl({
+    ...filters,
+    search: search || filters.search
+  });
 
   const handleIncludeGroupsChange = (event: SelectChangeEvent<string[]>) => {
     setFilters({
@@ -100,12 +75,12 @@ const Playlist: React.FC = () => {
       <Typography variant="h4" gutterBottom>
         Playlist Generator
       </Typography>
-      
+
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
           Generate M3U Playlist
         </Typography>
-        
+
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <TextField
@@ -116,20 +91,20 @@ const Playlist: React.FC = () => {
               placeholder="Enter channel name or keywords"
               margin="normal"
             />
-            
+
             <FormControlLabel
               control={
-                <Checkbox 
+                <Checkbox
                   checked={filters.only_online ?? true}
                   onChange={handleOnlyOnlineChange}
                 />
               }
               label="Only include online channels"
             />
-            
+
             <Box sx={{ mt: 2 }}>
-              <Button 
-                variant="contained" 
+              <Button
+                variant="contained"
                 color="primary"
                 onClick={() => setShowFilters(!showFilters)}
                 sx={{ mr: 2 }}
@@ -137,13 +112,13 @@ const Playlist: React.FC = () => {
                 {showFilters ? "Hide Advanced Filters" : "Show Advanced Filters"}
               </Button>
             </Box>
-            
+
             {showFilters && (
               <Box sx={{ mt: 3 }}>
                 <Typography variant="subtitle1" gutterBottom>
                   Advanced Filters
                 </Typography>
-                
+
                 <FormControl fullWidth margin="normal">
                   <InputLabel>Include Groups</InputLabel>
                   <Select
@@ -168,7 +143,7 @@ const Playlist: React.FC = () => {
                     ))}
                   </Select>
                 </FormControl>
-                
+
                 <FormControl fullWidth margin="normal">
                   <InputLabel>Exclude Groups</InputLabel>
                   <Select
@@ -196,32 +171,32 @@ const Playlist: React.FC = () => {
               </Box>
             )}
           </Grid>
-          
+
           <Grid item xs={12} md={6}>
             <Typography variant="subtitle1" gutterBottom>
               Download Options
             </Typography>
-            
+
             <Alert severity="info" sx={{ mb: 2 }}>
-              The generated playlist will work with any media player that supports Acestream links, 
+              The generated playlist will work with any media player that supports Acestream links,
               such as VLC or Kodi with the Acestream addon.
             </Alert>
-            
+
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
                 Playlist URL:
               </Typography>
-              <TextField
-                fullWidth
-                variant="outlined"
-                value={playlistUrl}
-                InputProps={{
-                  readOnly: true,
-                }}
-                size="small"
-              />
+            <TextField
+              fullWidth
+              variant="outlined"
+              value={playlistUrl}
+              InputProps={{
+                readOnly: true,
+              }}
+              size="small"
+            />
             </Box>
-            
+
             <Button
               variant="contained"
               color="primary"
@@ -232,7 +207,7 @@ const Playlist: React.FC = () => {
             >
               Download M3U
             </Button>
-            
+
             <Button
               variant="outlined"
               startIcon={<QrCode />}
@@ -242,26 +217,26 @@ const Playlist: React.FC = () => {
           </Grid>
         </Grid>
       </Paper>
-      
+
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom>
           Usage Instructions
         </Typography>
-        
+
         <Typography variant="body2" paragraph>
           1. Configure your playlist using the options above
         </Typography>
-        
+
         <Typography variant="body2" paragraph>
           2. Download the M3U file or copy the playlist URL
         </Typography>
-        
+
         <Typography variant="body2" paragraph>
           3. Import the M3U into your media player or IPTV client
         </Typography>
-        
+
         <Divider sx={{ my: 2 }} />
-        
+
         <Alert severity="warning">
           Make sure you have the Acestream engine installed and running on your device before playing the channels.
         </Alert>

@@ -95,8 +95,24 @@ export const configService = {
   /**
    * Update whether to add PID to Acestream links
    */
+
   updateAddPid: async (enabled: boolean): Promise<void> => {
-    await apiClient.put(`${BASE_URL}/addpid`, { enabled });
+    await apiClient.put(`${BASE_URL}/addpid`, { value: enabled ? 'true' : 'false' });
+  },
+
+  /**
+   * Get whether to use AppID in Acestream links
+   */
+  getAppId: async (): Promise<boolean> => {
+    const response = await apiClient.get<Setting>(`${BASE_URL}/appid`);
+    return response.data.value.toLowerCase() === 'true';
+  },
+
+  /**
+   * Update whether to use AppID in Acestream links
+   */
+  updateAppId: async (enabled: boolean): Promise<void> => {
+    await apiClient.put(`${BASE_URL}/appid`, { value: enabled ? 'true' : 'false' });
   },
 
   /**

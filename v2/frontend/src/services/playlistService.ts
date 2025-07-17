@@ -22,7 +22,7 @@ export const playlistService = {
    * Get M3U playlist with optional filters
    */
   getM3UPlaylist: async (filters?: PlaylistFilters): Promise<string> => {
-    const { data } = await apiClient.get('/v1/playlists/m3u', { 
+    const { data } = await apiClient.get('/v1/playlists/m3u', {
       params: filters,
       responseType: 'text'
     });
@@ -34,7 +34,6 @@ export const playlistService = {
    */
   getPlaylistDownloadUrl: (filters?: PlaylistFilters): string => {
     const params = new URLSearchParams();
-    
     if (filters) {
       if (filters.group) params.append('group', filters.group);
       if (filters.search) params.append('search', filters.search);
@@ -46,8 +45,8 @@ export const playlistService = {
         filters.exclude_groups.forEach(g => params.append('exclude_groups', g));
       }
     }
-    
-    return `/api/v1/playlists/m3u?${params.toString()}`;
+    const base = process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '';
+    return `${base}/api/v1/playlists/m3u?${params.toString()}`;
   },
 
   /**

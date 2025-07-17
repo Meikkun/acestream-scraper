@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     SCRAPER_RETRIES: int = 3
     ZERONET_TIMEOUT: int = 20
     ZERONET_RETRIES: int = 5
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
     FRONTEND_BUILD_PATH: str = os.getenv("FRONTEND_BUILD_PATH", "frontend_build")
     ace_engine_url: str = "http://localhost:6878"  # Acestream Engine URL
 

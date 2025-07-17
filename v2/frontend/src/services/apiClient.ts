@@ -6,8 +6,13 @@ import axios, { AxiosInstance } from 'axios';
 /**
  * Base API configuration
  */
+const apiBase =
+  process.env.NODE_ENV === 'development'
+    ? 'http://localhost:8000/api'
+    : '/api';
+
 const apiClient: AxiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: apiBase,
   headers: {
     'Content-Type': 'application/json',
   },

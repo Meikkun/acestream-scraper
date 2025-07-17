@@ -1,3 +1,9 @@
+from fastapi import Request, Response, Depends, Query
+from fastapi.responses import PlainTextResponse
+from sqlalchemy.orm import Session
+from typing import Optional
+from app.config.database import get_db
+from app.services.playlist_service import PlaylistService
 """
 Main application entry point for Acestream Scraper v2 backend
 """
@@ -104,6 +110,39 @@ for dirname in ["static", "assets"]:
 # Mount static files directories that exist
 for dirname in static_dirs:
     app.mount(f"/{dirname}", StaticFiles(directory=os.path.join(frontend_dir, dirname)), name=dirname)
+
+# Public playlist route for user-friendly URLs (no /api prefix)
+@app.get("/playlists/m3u", response_class=PlainTextResponse)
+async def public_m3u_playlist(
+    search: Optional[str] = None,
+    group: Optional[str] = None,
+    only_online: bool = True,
+    include_groups: Optional[str] = Query(None),
+    exclude_groups: Optional[str] = Query(None),
+    base_url: Optional[str] = Query(None),
+    format: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Public route for M3U playlist (no /api prefix)
+    """
+    playlist_service = PlaylistService(db)
+    try:
+        include_groups_list = include_groups.split(",") if include_groups else None
+        exclude_groups_list = exclude_groups.split(",") if exclude_groups else None
+        m3u_content = await playlist_service.generate_playlist(
+            search=search,
+            group=group,
+            only_online=only_online,
+            include_groups=include_groups_list,
+            exclude_groups=exclude_groups_list,
+            base_url=base_url,
+            format=format
+        )
+        headers = {"Content-Disposition": "attachment; filename=playlist.m3u"}
+        return PlainTextResponse(m3u_content, headers=headers)
+    except Exception as e:
+        return PlainTextResponse(f"#EXTM3U\n#EXTINF:-1,Error: {str(e)}\n", status_code=500)
 
 # Serve React app - handle all other routes to support client-side routing
 @app.exception_handler(StarletteHTTPException)

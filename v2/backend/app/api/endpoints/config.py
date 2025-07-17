@@ -1,8 +1,11 @@
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Body
 from sqlalchemy.orm import Session
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
 import logging
+
+router = APIRouter(tags=["config"])
 
 from app.config.database import get_db
 from app.repositories.settings_repository import SettingsRepository
@@ -18,7 +21,44 @@ from app.schemas.config import (
     HealthResponse
 )
 
-router = APIRouter(tags=["config"])
+
+
+def get_config_service(db: Session = Depends(get_db)):
+    settings_repo = SettingsRepository(db)
+    return ConfigService(settings_repo)
+
+# Add a simple Pydantic model for AppIdUpdate if not present
+class AppIdUpdate(BaseModel):
+    value: str
+
+@router.get("/appid", response_model=SettingResponse)
+def get_appid(config_service: ConfigService = Depends(get_config_service)):
+    """Get whether to use AppID in Acestream links"""
+    value = config_service.settings_repo.get_setting(
+        getattr(config_service.settings_repo, 'APPID', 'appid'),
+        'false'
+    )
+    return {"key": "appid", "value": value}
+
+@router.put("/appid")
+def update_appid(
+    update: AppIdUpdate,
+    config_service: ConfigService = Depends(get_config_service)
+):
+    """Update whether to use AppID in Acestream links"""
+    value = update.value
+    valid_values = ["true", "false", "True", "False", "1", "0"]
+    if value not in valid_values:
+        raise HTTPException(status_code=422, detail="Invalid boolean value for appid")
+    # Store as 'true' or 'false' string
+    config_service.settings_repo.set_setting(
+        getattr(config_service.settings_repo, 'APPID', 'appid'),
+        value,
+        "Use AppID in Acestream links"
+    )
+    return {"message": "Setting updated successfully", "value": value}
+
+
 logger = logging.getLogger(__name__)
 
 def get_config_service(db: Session = Depends(get_db)):
