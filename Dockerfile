@@ -60,7 +60,7 @@ RUN mkdir -p ZeroNet && \
     mv zeronet-conservancy-master/* ZeroNet/ && \
     rm -rf ZeroNet.tar.gz zeronet-conservancy-master
 
-ENV ACESTREAM_VERSION="3.2.3_ubuntu_22.04_x86_64_py3.10"
+ENV ACESTREAM_VERSION="3.2.11_ubuntu_22.04_x86_64_py3.10"
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install acestream dependencies
